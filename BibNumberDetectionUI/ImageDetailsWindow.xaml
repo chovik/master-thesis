@@ -1,0 +1,8 @@
+﻿<Window x:Class="BibNumberDetectionUI.ImageDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ImageDetailsWindow" Height="300" Width="300">
+    <Grid>
+        <Image Source="{Binding }" />
+    </Grid>
+</Window>

@@ -1,0 +1,9 @@
+﻿<Application x:Class="BibNumberDetectionUI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml"
+             xmlns:converters="clr-namespace:BibNumberDetectionUI.Converters">
+    <Application.Resources>
+        <converters:MatToBitmapConverter x:Key="MatToBitmapConverter" />
+    </Application.Resources>
+</Application>
