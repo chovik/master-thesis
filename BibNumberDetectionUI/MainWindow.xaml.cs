@@ -167,7 +167,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7460.jpg", LoadImageType.Color))
+                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.Color))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
                         Action updateListAction = () =>
@@ -179,30 +179,30 @@ namespace BibNumberDetectionUI
                         {
                             using (var filterImage2 = new Mat())
                         {
-                            CvInvoke.CvtColor(image, filterImage2, ColorConversion.Bgr2Gray);
+                            
                             await Dispatcher.BeginInvoke(updateListAction,
                                 null);
                             
-                            Mat aaa = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(5,9), new System.Drawing.Point(2, 4));
-                            CvInvoke.Dilate(filterImage2, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+                            //Mat aaa = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(5,9), new System.Drawing.Point(2, 4));
+                            //CvInvoke.Dilate(filterImage2, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
 
-                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                filterImage);
+                            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                            //    filterImage);
 
-                            CvInvoke.Erode(filterImage2, filterImage2, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+                            //CvInvoke.Erode(filterImage2, filterImage2, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
 
-                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                filterImage2);
+                            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                            //    filterImage2);
 
-                            CvInvoke.Subtract(filterImage, filterImage2, filterImage);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+                            //CvInvoke.Subtract(filterImage, filterImage2, filterImage);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
 
-                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                filterImage);
+                            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                            //    filterImage);
 
-                            CvInvoke.Threshold(filterImage, filterImage, 80, 240, ThresholdType.BinaryInv);// 3, false);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+                            //CvInvoke.Threshold(filterImage, filterImage, 80, 240, ThresholdType.BinaryInv);// 3, false);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
 
-                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                filterImage);
+                            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                            //    filterImage);
 
 
                             //CvInvoke.MorphologyEx(filterImage, filterImage, Emgu.CV.CvEnum.MorphOp.Tophat, aaa, new System.Drawing.Point(1, 1), 1, Emgu.CV.CvEnum.BorderType.Default, new MCvScalar(255, 0, 0, 255));  
@@ -259,101 +259,145 @@ namespace BibNumberDetectionUI
 
                                 System.Drawing.Rectangle torsoRectangle = ComputeTorsoArea(face);
 
-                                using (Mat torsoMat = new Mat(filterImage, torsoRectangle))
+                                using (Mat torsoMat = new Mat(image, torsoRectangle))
                                 {
-
                                     await Dispatcher.BeginInvoke(_addImageToTheList,
-                                        torsoMat);
-                                    //ProcessingImageWorkflow.Add(ToBitmapSource(torsoMat));
-                                    var data = EdgePreservingSmoothing(torsoMat, 5);
+                                                                     torsoMat);
+                                    //var changedContrast = ChangeContrast(torsoMat, 70);
 
-                                    using (Image<Bgr, byte> edgeImage = new Image<Bgr, byte>(data))
-                                    {
-                                        var subSampleData = SubSampling(edgeImage.Mat);
-                                        using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
+                                    //using (Image<Bgr, byte> contrast = new Image<Bgr, byte>(changedContrast))
+                                    //{
+                                    //    await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    //                                 contrast.Mat);
+
+
+                                        CvInvoke.CvtColor(torsoMat, filterImage2, ColorConversion.Bgr2Gray);
+                                        Mat aaa = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(5, 9), new System.Drawing.Point(2, 4));
+                                        CvInvoke.Dilate(filterImage2, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                            filterImage);
+
+                                        CvInvoke.Erode(filterImage2, filterImage2, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                            filterImage2);
+
+                                        CvInvoke.Subtract(filterImage, filterImage2, filterImage);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                            filterImage);
+
+                                        CvInvoke.Threshold(filterImage, filterImage, 80, 240, ThresholdType.BinaryInv);// 3, false);//, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
+
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                            filterImage);
+
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                            torsoMat);
+                                        //ProcessingImageWorkflow.Add(ToBitmapSource(torsoMat));
+                                        var data = EdgePreservingSmoothing(torsoMat, 5);
+
+                    
+                                        using (Image<Bgr, byte> edgeImage = new Image<Bgr, byte>(data))
                                         {
+                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                   edgeImage.Mat);
 
-                                            using (var canny = new Mat())
+                                            var changedContrast = ChangeContrast(edgeImage.Mat, 70);
+
+                                    using (Image<Bgr, byte> contrast = new Image<Bgr, byte>(changedContrast))
+                                    {
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                     contrast.Mat);
+
+                                            var subSampleData = SubSampling(edgeImage.Mat);
+
+                                            using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
                                             {
-                                                using (var gray = new Mat())
+
+                                                using (var canny = new Mat())
                                                 {
-                                                    using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                                                    using (var gray = new Mat())
                                                     {
-                                                        using (VectorOfVectorOfPoint filteredContours = new VectorOfVectorOfPoint())
+                                                        using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
                                                         {
-                                                            var rgb = smoothImage.Mat.Split();
-
-                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                               rgb[0]);
-
-                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                               rgb[1]);
-
-                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                               rgb[2]);
-
-                                                            using(Mat invertedMat = new Mat())
+                                                            using (VectorOfVectorOfPoint filteredContours = new VectorOfVectorOfPoint())
                                                             {
-                                                               
-                                                                //CvInvoke.con
+                                                                var rgb = smoothImage.Mat.Split();
 
-                                                                CvInvoke.CvtColor(smoothImage.Mat, gray, ColorConversion.Bgr2Gray);
+                                                                await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                   rgb[0]);
 
-                                                                //CvInvoke.Invert(gray, invertedMat, DecompMethod.Eig);
+                                                                await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                   rgb[1]);
 
-                                                                //await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                //                       invertedMat);
+                                                                await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                   rgb[2]);
 
-                                                                //CvInvoke.Laplacian(gray, canny, DepthType.Cv8U);
-                                                                //CvInvoke.Threshold(gray, invertedMat, 173, 256, ThresholdType.Binary);
-                                                                CvInvoke.Canny(gray, canny, 120, 240, 3, false);
-
-                                                                CvInvoke.FindContours(canny, contours, null, RetrType.External, ChainApproxMethod.LinkRuns);
-
-                                                                for (int i = 0; i < contours.Size; i++)
+                                                                using (Mat invertedMat = new Mat())
                                                                 {
-                                                                    var contour = contours[i];
-                                                                    var contourArea = CvInvoke.ContourArea(contour);
 
-                                                                    //if (contourArea > face.Height * face.Width * 0.4
-                                                                    //    && contourArea < face.Height * face.Width * 2)//face.Height * face.Width * 0.7)
-                                                                    //{
+                                                                    //CvInvoke.con
+
+                                                                    CvInvoke.CvtColor(smoothImage.Mat, gray, ColorConversion.Bgr2Gray);
+
+                                                                    //CvInvoke.Invert(gray, invertedMat, DecompMethod.Eig);
+
+                                                                    //await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                    //                       invertedMat);
+
+                                                                    //CvInvoke.Laplacian(gray, canny, DepthType.Cv8U);
+                                                                    //CvInvoke.Threshold(gray, invertedMat, 173, 256, ThresholdType.Binary);
+                                                                    CvInvoke.Canny(gray, canny, 120, 240, 3, false);
+
+                                                                    CvInvoke.FindContours(canny, contours, null, RetrType.External, ChainApproxMethod.LinkRuns);
+
+                                                                    for (int i = 0; i < contours.Size; i++)
+                                                                    {
+                                                                        var contour = contours[i];
+                                                                        var contourArea = CvInvoke.ContourArea(contour);
+
+                                                                        //if (contourArea > face.Height * face.Width * 0.4
+                                                                        //    && contourArea < face.Height * face.Width * 2)//face.Height * face.Width * 0.7)
+                                                                        //{
                                                                         filteredContours.Push(contour);
-                                                                    //}
+                                                                        //}
+                                                                    }
+
+                                                                    LineSegment2D[] lines = CvInvoke.HoughLinesP(
+                                                                                           canny,
+                                                                                           2, //Distance resolution in pixel-related units
+                                                                                           Math.PI / 90, //Angle resolution measured in radians.
+                                                                                           20, //threshold
+                                                                                           5, //min Line width
+                                                                                           10); //gap between lines
+
+                                                                    foreach (var line in lines)
+                                                                    {
+                                                                        CvInvoke.Line(smoothImage.Mat, line.P1, line.P2, new Bgr(System.Drawing.Color.YellowGreen).MCvScalar, 2);
+                                                                    }
+
+                                                                    CvInvoke.DrawContours(smoothImage.Mat, filteredContours, -1, new MCvScalar(255, 0, 0), -1, LineType.EightConnected, null, 200);
+                                                                    
+                                                                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                       smoothImage.Mat);
+
+                                                                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                           canny);
                                                                 }
-
-                                                                LineSegment2D[] lines = CvInvoke.HoughLinesP(
-                                                                                       canny,
-                                                                                       1, //Distance resolution in pixel-related units
-                                                                                       Math.PI / 180, //Angle resolution measured in radians.
-                                                                                       100, //threshold
-                                                                                       5, //min Line width
-                                                                                       10); //gap between lines
-
-                                                                foreach (var line in lines)
-                                                                {
-                                                                    CvInvoke.Line(smoothImage.Mat, line.P1, line.P2, new Bgr(System.Drawing.Color.YellowGreen).MCvScalar, 1);
-                                                                }
-
-                                                                CvInvoke.DrawContours(smoothImage.Mat, filteredContours, -1, new MCvScalar(255, 0, 0));
-
-                                                                await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                                   smoothImage.Mat);
-
-                                                                await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                                       canny);
                                                             }
                                                         }
                                                     }
-                                                }
 
+                                                }
                                             }
                                         }
+
+                                        //ProcessingImageWorkflow.Add(ToBitmapSource(torsoMat.Clone()));
+
+
                                     }
-
-                                    //ProcessingImageWorkflow.Add(ToBitmapSource(torsoMat.Clone()));
-
-
                                 }
 
 
@@ -427,6 +471,7 @@ namespace BibNumberDetectionUI
 
             
         }
+
 
         public byte[,,] SubSampling(Mat img)
         {
@@ -756,7 +801,7 @@ namespace BibNumberDetectionUI
         {
             byte[, ,] resultValues = new byte[img.Rows, img.Cols, 3];
 
-            for(int i = 0; i < 5; i++)
+            for(int i = 0; i < 1; i++)
             {
                 var colorChannels = img.Split();
 
@@ -919,6 +964,44 @@ namespace BibNumberDetectionUI
             EdgeDetectionWindow details = new EdgeDetectionWindow(button.DataContext as Mat);
             //details.DataContext = button.DataContext; ;
             details.Show();
+        }
+
+        public byte[,,] ChangeContrast(Mat img, double a, double b = 128)
+        {
+            //a = 50;
+            byte[,,] data = new byte[img.Rows, img.Cols, 3];
+
+            var factor = (259 * (a + 255)) / (255 * (259 - a));
+
+
+            if (img.NumberOfChannels == 3)
+            {
+                for (int row = 0; row < img.Rows; row++)
+                {
+                    for (int column = 0; column < img.Cols; column++)
+                    {
+                        for (int channel = 0; channel < 3; channel++)
+                        {
+                            var oldValue = img.GetData(row, column)[channel];
+                            var val = factor * (oldValue - b) + b;
+                            var newValue = Math.Truncate(val);
+
+                            if (newValue > 256)
+                            {
+                                newValue = 255;
+                            }
+                            else if(newValue < 0)
+                            {
+                                newValue = 0;
+                            }
+
+                            data[row, column, channel] = (byte)newValue;
+                        }
+                    }
+                }
+            }
+
+            return data;
         }
     }
 }
