@@ -167,7 +167,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.Color))
+                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.Color))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
                         Action updateListAction = () =>
@@ -273,8 +273,14 @@ namespace BibNumberDetectionUI
                                     //    await Dispatcher.BeginInvoke(_addImageToTheList,
                                     //                                 contrast.Mat);
 
-                                        CvInvoke.CvtColor(torsoMat, hsvMat, ColorConversion.Bgr2Hsv);
+                                        //CvInvoke.CvtColor(torsoMat, hsvMat, ColorConversion.Bgr2Hsv);
+                                       // CvInvoke.MedianBlur(torsoMat, torsoMat, 3);
+                                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                     torsoMat);
+
                                         CvInvoke.CvtColor(torsoMat, filterImage2, ColorConversion.Bgr2Gray);
+                                        CvInvoke.MedianBlur(filterImage2, filterImage2, 5);
+
                                         Mat aaa = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(5, 9), new System.Drawing.Point(2, 4));
                                         CvInvoke.Dilate(filterImage2, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
 
@@ -322,13 +328,13 @@ namespace BibNumberDetectionUI
 
                                                 using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
                                                 {
-                                                    var changedContrast2 = ChangeContrast(smoothImage.Mat, 127);
+                                                    var changedContrast2 = ChangeContrast(smoothImage.Mat, 70);
 
                                                     using (Image<Bgr, byte> contrast2 = new Image<Bgr, byte>(changedContrast2))
                                                     {
                                                         await Dispatcher.BeginInvoke(_addImageToTheList,
                                                                                      contrast2.Mat);
-
+                                                        
                                                         using (var canny = new Mat())
                                                         {
                                                             using (var gray = new Mat())
@@ -350,21 +356,63 @@ namespace BibNumberDetectionUI
 
                                                                         using (Mat invertedMat = new Mat())
                                                                         {
-
+                                                                            Mat xSobel = new Mat();
+                                                                            Mat ySobel = new Mat();
                                                                             //CvInvoke.con
 
-                                                                            CvInvoke.CvtColor(smoothImage.Mat, gray, ColorConversion.Bgr2Gray);
+                                                                            CvInvoke.CvtColor(torsoMat, gray, ColorConversion.Bgr2Gray);
+
+                                                                            CvInvoke.MedianBlur(gray, gray, 5);
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                               gray);
+
+                                                                            CvInvoke.Sobel(gray, xSobel, DepthType.Cv8U, 1, 0);
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                               xSobel);
+
+
+                                                                            CvInvoke.Sobel(gray, ySobel, DepthType.Cv8U, 0, 1);
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                               ySobel);
+
+                                                                         
+
+                                                                            byte[, ,] edgeSobel = new byte[xSobel.Rows, xSobel.Cols, 1];
+
+                                                                            for (int row = 0; row < xSobel.Rows; row++)
+                                                                            {
+                                                                                for (int col = 0; col < xSobel.Cols; col++)
+                                                                                {
+                                                                                    var magX = xSobel.GetData(row, col)[0];
+                                                                                    var magY = ySobel.GetData(row, col)[0];
+                                                                                    var magnitude = Math.Sqrt(magX * magX + magY * magY);
+                                                                                    edgeSobel[row, col, 0] = ToByte(magnitude);
+                                                                                }
+                                                                            }
+
+
+                                                                            using (Image<Gray, Byte> edgeSobelImage = new Image<Gray, byte>(edgeSobel))
+                                                                            {
+
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                           edgeSobelImage.Mat);
+
+                                                                            //CvInvoke.AddWeighted(xSobel, 0.5, ySobel, 0.5, 0, gray);
+
 
                                                                             //CvInvoke.Invert(gray, invertedMat, DecompMethod.Eig);
 
-                                                                            //await Dispatcher.BeginInvoke(_addImageToTheList,
-                                                                            //                       invertedMat);
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                                   gray);
 
                                                                             //CvInvoke.AdaptiveThreshold(gray, gray, 255, AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 11, 2);
-                                                                            //CvInvoke.Threshold(gray, gray, 200, 256, ThresholdType.Binary);
+                                                                            //CvInvoke.Threshold(smoothImage.Mat, gray, 150, 255, ThresholdType.Binary);
+
+                                                                            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                               gray);
                                                                             //CvInvoke.Laplacian(gray, canny, DepthType.Cv8U);
                                                                             //CvInvoke.Threshold(gray, invertedMat, 173, 256, ThresholdType.Binary);
-                                                                            CvInvoke.Canny(contrast2.Mat, canny, 0, 0, 3, false);
+                                                                            CvInvoke.Canny(gray, canny, 70, 240, 3, false);
 
                                                                             CvInvoke.FindContours(canny, contours, null, RetrType.List, ChainApproxMethod.ChainApproxNone);
 
@@ -403,6 +451,7 @@ namespace BibNumberDetectionUI
                                                                         }
                                                                     }
                                                                 }
+                                                            }
                                                             }
                                                         }
 
@@ -791,29 +840,79 @@ namespace BibNumberDetectionUI
 
             byte[, ,] postProcessedData = null;
 
-            using(var edgeMat = new Mat())
-            {
-                CvInvoke.Canny(img2.Mat, edgeMat, 80, 240);
+            //using(var edgeMat = new Mat())
+            //{
+                //CvInvoke.Canny(img2.Mat, edgeMat, 80, 240, 3, false);
 
-                await Dispatcher.BeginInvoke(_addImageToTheList,
-                                        edgeMat);
+                //await Dispatcher.BeginInvoke(_addImageToTheList,
+                //                        edgeMat);
 
-                postProcessedData = PostProcessing(finalImageData, edgeMat);                
+            postProcessedData = PostProcessing(img2.Mat);                
 
                 Image<Bgr, byte> img3 = new Image<Bgr, byte>(postProcessedData);
 
                 await Dispatcher.BeginInvoke(_addImageToTheList,
                                         img3.Mat);
-            }
+            //}
 
             return postProcessedData;
         }
 
-        public static byte[,,] PostProcessing(byte[,,] data, Mat edgeMat)
+        public static double[,] ComputeEdgeMagnitudes(Mat img)
         {
-            int rows = data.GetLength(0);
-            int cols = data.GetLength(1);
-            var colors = data.GetLength(2);
+            var colorChannels = img.Split();
+
+            var rSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var rSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+            var gSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var gSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+            var bSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var bSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+
+            CvInvoke.Sobel(colorChannels[2], rSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[2], rSobelY, DepthType.Cv8U, 0, 1);
+
+            CvInvoke.Sobel(colorChannels[1], gSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[1], gSobelY, DepthType.Cv8U, 0, 1);
+
+            CvInvoke.Sobel(colorChannels[0], bSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[0], bSobelY, DepthType.Cv8U, 0, 1);
+
+
+            int cols = img.Cols;
+            int rows = img.Rows;
+
+            var edgeValues = new double[rows, cols];
+
+            for (int rowIndex = 0; rowIndex < rows; rowIndex++)
+            {
+                for (int columnIndex = 0; columnIndex < cols; columnIndex++)
+                {
+                    var rX = rSobelX.GetData(rowIndex, columnIndex)[0];
+                    var rY = rSobelY.GetData(rowIndex, columnIndex)[0];
+                    var gX = gSobelX.GetData(rowIndex, columnIndex)[0];
+                    var gY = gSobelY.GetData(rowIndex, columnIndex)[0];
+                    var bX = bSobelX.GetData(rowIndex, columnIndex)[0];
+                    var bY = bSobelY.GetData(rowIndex, columnIndex)[0];
+
+                    var edgeRed = Math.Sqrt(rX * rX + rY * rY);
+                    var edgeGreen = Math.Sqrt(gX * gX + gY * gY);
+                    var edgeBlue = Math.Sqrt(bX * bX + bY * bY);
+
+                    var edgeValue = (new double[] { edgeRed, edgeGreen, edgeBlue }).Max();
+                    edgeValues[rowIndex, columnIndex] = edgeValue;
+                }
+            }
+
+            return edgeValues;
+        }
+
+        public static byte[,,] PostProcessing(Mat img)
+        {
+            var edgeData = ComputeEdgeMagnitudes(img);
+            int rows = img.Rows;
+            int cols = img.Cols;
+            var colors = img.NumberOfChannels;
             byte[, ,] newData = new byte[rows, cols, colors];
 
             for (int row = 0; row < rows; row++ )
@@ -825,13 +924,13 @@ namespace BibNumberDetectionUI
                             || col == 0
                             || col == cols - 1)
                     {
-                        newData[row, col, 2] = data[row, col, 2];
-                        newData[row, col, 1] = data[row, col, 1];
-                        newData[row, col, 0] = data[row, col, 0];
+                        newData[row, col, 2] = img.GetData(row, col)[2];
+                        newData[row, col, 1] = img.GetData(row, col)[1];
+                        newData[row, col, 0] = img.GetData(row, col)[0];
                     }
                     else
                     {
-                        Rgb newValue = PostProcessPixel(new System.Drawing.Point(col, row), data, edgeMat);
+                        Rgb newValue = PostProcessPixel(new System.Drawing.Point(col, row), img, edgeData);
                         newData[row, col, 2] = ToByte(newValue.Red);
                         newData[row, col, 1] = ToByte(newValue.Green);
                         newData[row, col, 0] = ToByte(newValue.Blue);
@@ -860,7 +959,7 @@ namespace BibNumberDetectionUI
             return (byte)round;
         }
 
-        public static Rgb PostProcessPixel(System.Drawing.Point centralPixel, byte[,,] data, Mat edgeMat)
+        public static Rgb PostProcessPixel(System.Drawing.Point centralPixel, Mat data, double[,] edgeMat)
         {
             System.Drawing.Point[] neighbours = GetNeighbours(centralPixel);
 
@@ -946,8 +1045,8 @@ namespace BibNumberDetectionUI
                     }
                 }
 
-                var edgeVal = edgeMat.GetData(point.X, point.Y)[0];
-                var centerEdgeVal = edgeMat.GetData(centralPixel.X, centralPixel.Y)[0];
+                var edgeVal = edgeMat[point.Y, point.X];
+                var centerEdgeVal = edgeMat[centralPixel.Y, centralPixel.X];
 
                 if (centerEdgeVal > edgeVal)
                 {
@@ -982,6 +1081,18 @@ namespace BibNumberDetectionUI
             rgb.Blue = data[point.Y, point.X, 0];
 
             return rgb;
+        }
+
+        public static Rgb GetRgb(System.Drawing.Point point, Mat img)
+        {
+            Rgb rgb = new Rgb();
+
+            rgb.Red = img.GetData(point.Y, point.X)[2];
+            rgb.Green = img.GetData(point.Y, point.X)[1];
+            rgb.Blue = img.GetData(point.Y, point.X)[0];
+
+            return rgb;
+            
         }
 
         public static bool IsLocalMinima(System.Drawing.Point centralPixel, double[,] edgeValues)
