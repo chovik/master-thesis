@@ -167,7 +167,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.Color))
+                    using (Mat image = new Mat(@"IMG_7460.jpg", LoadImageType.Color))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
                         Action updateListAction = () =>
@@ -265,7 +265,12 @@ namespace BibNumberDetectionUI
                                                                      torsoMat);
 
                                     using (Mat hsvMat = new Mat())
-                                    { 
+                                    {
+
+                                        
+
+
+
                                     //var changedContrast = ChangeContrast(torsoMat, 127);
 
                                     //using (Image<Bgr, byte> contrast = new Image<Bgr, byte>(changedContrast))
@@ -328,7 +333,27 @@ namespace BibNumberDetectionUI
 
                                                 using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
                                                 {
-                                                    var changedContrast2 = ChangeContrast(smoothImage.Mat, 70);
+                                                    var changedContrast2 = ChangeContrast(smoothImage.Mat, 20);
+
+                                                    var edge = ComputeEdgeMagnitudes(smoothImage.Mat);
+                                                    var rows = edge.GetLength(0);
+                                                    var cols = edge.GetLength(1);
+
+                                                    byte[, ,] newEdge = new byte[rows, cols, 1];
+
+                                                    for (int row = 0; row < edge.GetLength(0); row++)
+                                                    {
+                                                        for (int col = 0; col < edge.GetLength(1); col++)
+                                                        {
+                                                            newEdge[row, col, 0] = ToByte(edge[row, col, 0]);
+                                                        }
+                                                    }
+
+
+                                                    Image<Gray, Byte> edRGB = new Image<Gray, Byte>(newEdge);
+
+                                                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                                 edRGB.Mat);
 
                                                     using (Image<Bgr, byte> contrast2 = new Image<Bgr, byte>(changedContrast2))
                                                     {
@@ -360,9 +385,9 @@ namespace BibNumberDetectionUI
                                                                             Mat ySobel = new Mat();
                                                                             //CvInvoke.con
 
-                                                                            CvInvoke.CvtColor(torsoMat, gray, ColorConversion.Bgr2Gray);
+                                                                            CvInvoke.CvtColor(smoothImage, gray, ColorConversion.Bgr2Gray);
 
-                                                                            CvInvoke.MedianBlur(gray, gray, 5);
+                                                                            //CvInvoke.MedianBlur(gray, gray, 5);
                                                                             await Dispatcher.BeginInvoke(_addImageToTheList,
                                                                                                gray);
 
@@ -396,6 +421,11 @@ namespace BibNumberDetectionUI
 
                                                                             await Dispatcher.BeginInvoke(_addImageToTheList,
                                                                                            edgeSobelImage.Mat);
+
+                                                                            //CvInvoke.Threshold(edgeSobelImage.Mat, canny, 100, 255, ThresholdType.Binary);
+
+                                                                            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                                                                            //           canny);
 
                                                                             //CvInvoke.AddWeighted(xSobel, 0.5, ySobel, 0.5, 0, gray);
 
@@ -566,6 +596,7 @@ namespace BibNumberDetectionUI
             int rows = img.Rows;
 
             var edgeValues = new double[rows, cols];
+            var edgeValuesTest = new byte[rows, cols, 1];
 
             for (int rowIndex = 0; rowIndex < rows; rowIndex++)
             {
@@ -583,9 +614,15 @@ namespace BibNumberDetectionUI
                     var edgeBlue = Math.Sqrt(bX * bX + bY * bY);
 
                     var edgeValue = (new double[] { edgeRed, edgeGreen, edgeBlue }).Max();
+                    edgeValuesTest[rowIndex, columnIndex, 0] = ToByte(edgeValue);
                     edgeValues[rowIndex, columnIndex] = edgeValue;
                 }
             }
+
+            Image<Gray, byte> edGE = new Image<Gray, byte>(edgeValuesTest);
+
+            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    edGE.Mat);
 
             var samples = new byte[rows, cols, 3];
 
@@ -858,7 +895,7 @@ namespace BibNumberDetectionUI
             return postProcessedData;
         }
 
-        public static double[,] ComputeEdgeMagnitudes(Mat img)
+        public static double[,,] ComputeEdgeMagnitudes(Mat img)
         {
             var colorChannels = img.Split();
 
@@ -882,7 +919,7 @@ namespace BibNumberDetectionUI
             int cols = img.Cols;
             int rows = img.Rows;
 
-            var edgeValues = new double[rows, cols];
+            var edgeValues = new double[rows, cols, 1];
 
             for (int rowIndex = 0; rowIndex < rows; rowIndex++)
             {
@@ -900,7 +937,7 @@ namespace BibNumberDetectionUI
                     var edgeBlue = Math.Sqrt(bX * bX + bY * bY);
 
                     var edgeValue = (new double[] { edgeRed, edgeGreen, edgeBlue }).Max();
-                    edgeValues[rowIndex, columnIndex] = edgeValue;
+                    edgeValues[rowIndex, columnIndex, 0] = edgeValue;
                 }
             }
 
@@ -959,7 +996,7 @@ namespace BibNumberDetectionUI
             return (byte)round;
         }
 
-        public static Rgb PostProcessPixel(System.Drawing.Point centralPixel, Mat data, double[,] edgeMat)
+        public static Rgb PostProcessPixel(System.Drawing.Point centralPixel, Mat data, double[,,] edgeMat)
         {
             System.Drawing.Point[] neighbours = GetNeighbours(centralPixel);
 
@@ -1045,8 +1082,8 @@ namespace BibNumberDetectionUI
                     }
                 }
 
-                var edgeVal = edgeMat[point.Y, point.X];
-                var centerEdgeVal = edgeMat[centralPixel.Y, centralPixel.X];
+                var edgeVal = edgeMat[point.Y, point.X, 0];
+                var centerEdgeVal = edgeMat[centralPixel.Y, centralPixel.X, 0];
 
                 if (centerEdgeVal > edgeVal)
                 {
