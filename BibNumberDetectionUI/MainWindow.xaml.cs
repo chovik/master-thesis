@@ -167,7 +167,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7460.jpg", LoadImageType.Color))
+                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.Color))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
                         Action updateListAction = () =>
@@ -318,7 +318,7 @@ namespace BibNumberDetectionUI
                                                 await Dispatcher.BeginInvoke(_addImageToTheList,
                                                                              contrast.Mat);
 
-                                                var subSampleData = SubSampling(edgeImage.Mat);
+                                                var subSampleData = await SubSampling(edgeImage.Mat);
 
                                                 using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
                                                 {
@@ -360,11 +360,13 @@ namespace BibNumberDetectionUI
                                                                             //await Dispatcher.BeginInvoke(_addImageToTheList,
                                                                             //                       invertedMat);
 
+                                                                            //CvInvoke.AdaptiveThreshold(gray, gray, 255, AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 11, 2);
+                                                                            //CvInvoke.Threshold(gray, gray, 200, 256, ThresholdType.Binary);
                                                                             //CvInvoke.Laplacian(gray, canny, DepthType.Cv8U);
                                                                             //CvInvoke.Threshold(gray, invertedMat, 173, 256, ThresholdType.Binary);
-                                                                            CvInvoke.Canny(gray, canny, 120, 240, 3, false);
+                                                                            CvInvoke.Canny(contrast2.Mat, canny, 0, 0, 3, false);
 
-                                                                            CvInvoke.FindContours(canny, contours, null, RetrType.External, ChainApproxMethod.LinkRuns);
+                                                                            CvInvoke.FindContours(canny, contours, null, RetrType.List, ChainApproxMethod.ChainApproxNone);
 
                                                                             for (int i = 0; i < contours.Size; i++)
                                                                             {
@@ -380,15 +382,15 @@ namespace BibNumberDetectionUI
 
                                                                             LineSegment2D[] lines = CvInvoke.HoughLinesP(
                                                                                                    canny,
-                                                                                                   2, //Distance resolution in pixel-related units
-                                                                                                   Math.PI / 90, //Angle resolution measured in radians.
-                                                                                                   20, //threshold
+                                                                                                   1, //Distance resolution in pixel-related units
+                                                                                                   Math.PI / 180, //Angle resolution measured in radians.
+                                                                                                   25, //threshold
                                                                                                    5, //min Line width
                                                                                                    10); //gap between lines
 
                                                                             foreach (var line in lines)
                                                                             {
-                                                                                CvInvoke.Line(smoothImage.Mat, line.P1, line.P2, new Bgr(System.Drawing.Color.YellowGreen).MCvScalar, 2);
+                                                                                //CvInvoke.Line(smoothImage.Mat, line.P1, line.P2, new Bgr(System.Drawing.Color.DarkBlue).MCvScalar, 1);
                                                                             }
 
                                                                             CvInvoke.DrawContours(smoothImage.Mat, filteredContours, -1, new MCvScalar(255, 0, 0), -1, LineType.EightConnected, null, 200);
@@ -488,7 +490,7 @@ namespace BibNumberDetectionUI
         }
 
 
-        public byte[,,] SubSampling(Mat img)
+        public async Task<byte[,,]> SubSampling(Mat img)
         {
             //ProcessingImageWorkflow.Add(ToBitmapSource(img));
             //img = new Mat("diplomka.png", LoadImageType.Color);
@@ -587,7 +589,7 @@ namespace BibNumberDetectionUI
 
 
             Image<Bgr, byte> img4 = new Image<Bgr, byte>(samples);
-            Dispatcher.BeginInvoke(_addImageToTheList,
+            await Dispatcher.BeginInvoke(_addImageToTheList,
                                     img4.Mat);
 
             var visitedSamples = new List<byte[]>();
@@ -782,11 +784,204 @@ namespace BibNumberDetectionUI
             }
 
             Image<Bgr, byte> img2 = new Image<Bgr, byte>(finalImageData);
-            
-            Dispatcher.BeginInvoke(_addImageToTheList,
+
+            await Dispatcher.BeginInvoke(_addImageToTheList,
                                     img2.Mat);
 
-            return finalImageData;
+
+            byte[, ,] postProcessedData = null;
+
+            using(var edgeMat = new Mat())
+            {
+                CvInvoke.Canny(img2.Mat, edgeMat, 80, 240);
+
+                await Dispatcher.BeginInvoke(_addImageToTheList,
+                                        edgeMat);
+
+                postProcessedData = PostProcessing(finalImageData, edgeMat);                
+
+                Image<Bgr, byte> img3 = new Image<Bgr, byte>(postProcessedData);
+
+                await Dispatcher.BeginInvoke(_addImageToTheList,
+                                        img3.Mat);
+            }
+
+            return postProcessedData;
+        }
+
+        public static byte[,,] PostProcessing(byte[,,] data, Mat edgeMat)
+        {
+            int rows = data.GetLength(0);
+            int cols = data.GetLength(1);
+            var colors = data.GetLength(2);
+            byte[, ,] newData = new byte[rows, cols, colors];
+
+            for (int row = 0; row < rows; row++ )
+            {
+                for(int col = 0; col < cols; col++)
+                {
+                    if (row == 0
+                            || row == rows - 1
+                            || col == 0
+                            || col == cols - 1)
+                    {
+                        newData[row, col, 2] = data[row, col, 2];
+                        newData[row, col, 1] = data[row, col, 1];
+                        newData[row, col, 0] = data[row, col, 0];
+                    }
+                    else
+                    {
+                        Rgb newValue = PostProcessPixel(new System.Drawing.Point(col, row), data, edgeMat);
+                        newData[row, col, 2] = ToByte(newValue.Red);
+                        newData[row, col, 1] = ToByte(newValue.Green);
+                        newData[row, col, 0] = ToByte(newValue.Blue);
+                    }
+
+                    
+                }
+            }
+
+            return newData;
+        }
+
+        public static byte ToByte(double d)
+        {
+            int round = (int)Math.Round(d);
+
+            if(round > 255)
+            {
+                round = 255;
+            }
+            else if(round < 0)
+            {
+                round = 0;
+            }
+
+            return (byte)round;
+        }
+
+        public static Rgb PostProcessPixel(System.Drawing.Point centralPixel, byte[,,] data, Mat edgeMat)
+        {
+            System.Drawing.Point[] neighbours = GetNeighbours(centralPixel);
+
+            if(neighbours != null)
+            {
+                var centralRgb = GetRgb(centralPixel, data);
+
+                var rgb1 = GetRgb(neighbours[0], data);
+                var rgb2 = GetRgb(neighbours[1], data);
+                var rgb3 = GetRgb(neighbours[2], data);
+                var rgb4 = GetRgb(neighbours[3], data);
+                var rgb5 = GetRgb(neighbours[4], data);
+                var rgb6 = GetRgb(neighbours[5], data);
+                var rgb7 = GetRgb(neighbours[6], data);
+                var rgb8 = GetRgb(neighbours[7], data);
+
+                var d0 = Math.Abs(rgb4.Red - rgb5.Red) + Math.Abs(rgb4.Green - rgb5.Green) + Math.Abs(rgb4.Blue - rgb5.Blue);
+                var d45 = Math.Abs(rgb6.Red - rgb3.Red) + Math.Abs(rgb6.Green - rgb3.Green) + Math.Abs(rgb6.Blue - rgb3.Blue);
+                var d90 = Math.Abs(rgb7.Red - rgb2.Red) + Math.Abs(rgb7.Green - rgb2.Green) + Math.Abs(rgb7.Blue - rgb2.Blue);
+                var d135 = Math.Abs(rgb8.Red - rgb1.Red) + Math.Abs(rgb8.Green - rgb1.Green) + Math.Abs(rgb8.Blue - rgb1.Blue);
+
+                var dList = new[] { d0, d45, d90, d135 };
+
+                var maxD = dList.Max();
+
+                System.Drawing.Point point = new System.Drawing.Point();
+
+
+                if (maxD == d0)
+                {
+                    var distance1 = ColorDistance(rgb4, centralRgb);
+                    var distance2 = ColorDistance(rgb5, centralRgb);
+
+                    if (distance1 < distance2)
+                    {
+                        point = neighbours[3];
+                    }
+                    else
+                    {
+                        point = neighbours[4];
+                    }
+                }
+                else if (maxD == d45)
+                {
+                    var distance1 = ColorDistance(rgb6, centralRgb);
+                    var distance2 = ColorDistance(rgb3, centralRgb);
+
+                    if (distance1 < distance2)
+                    {
+                        point = neighbours[5];
+                    }
+                    else
+                    {
+                        point = neighbours[2];
+                    }
+                }
+                else if (maxD == d90)
+                {
+                    var distance1 = ColorDistance(rgb7, centralRgb);
+                    var distance2 = ColorDistance(rgb2, centralRgb);
+
+                    if (distance1 < distance2)
+                    {
+                        point = neighbours[6];
+                    }
+                    else
+                    {
+                        point = neighbours[1];
+                    }
+                }
+                else if (maxD == d135)
+                {
+                    var distance1 = ColorDistance(rgb8, centralRgb);
+                    var distance2 = ColorDistance(rgb1, centralRgb);
+
+                    if (distance1 < distance2)
+                    {
+                        point = neighbours[7];
+                    }
+                    else
+                    {
+                        point = neighbours[0];
+                    }
+                }
+
+                var edgeVal = edgeMat.GetData(point.X, point.Y)[0];
+                var centerEdgeVal = edgeMat.GetData(centralPixel.X, centralPixel.Y)[0];
+
+                if (centerEdgeVal > edgeVal)
+                {
+                    return GetRgb(point, data);
+                }
+            }            
+
+            return GetRgb(centralPixel, data);
+        }
+
+        public static double ColorDistance(System.Drawing.Point p1, System.Drawing.Point p2, byte[, ,] data)
+        {
+            var rgb1 = GetRgb(p1, data);
+            var rgb2 = GetRgb(p2, data);
+
+            return ColorDistance(rgb1, rgb2);
+        }
+
+        public static double ColorDistance(Rgb rgb1, Rgb rgb2)
+        {
+            var val = Math.Abs(rgb1.Red - rgb2.Red) + Math.Abs(rgb1.Green - rgb2.Green) + Math.Abs(rgb1.Blue - rgb2.Blue);
+
+            return val;
+        }
+
+        public static Rgb GetRgb(System.Drawing.Point point, byte[, ,] data)
+        {
+            Rgb rgb = new Rgb();
+
+            rgb.Red = data[point.Y, point.X, 2];
+            rgb.Green = data[point.Y, point.X, 1];
+            rgb.Blue = data[point.Y, point.X, 0];
+
+            return rgb;
         }
 
         public static bool IsLocalMinima(System.Drawing.Point centralPixel, double[,] edgeValues)
@@ -893,7 +1088,7 @@ namespace BibNumberDetectionUI
         public const double REF_Y = 100.000;
         public const double REF_Z = 108.883;
 
-        double[] bgr2xyz(byte[] bgr)
+        static double[] bgr2xyz(byte[] bgr)
         {
             double[] xyz = new double[3];
 
@@ -922,7 +1117,7 @@ namespace BibNumberDetectionUI
             return xyz;
         }
 
-        double[] xyz2lab(double[] xyz)
+        static double[] xyz2lab(double[] xyz)
         {
             double[] lab = new double[3];
 
@@ -948,7 +1143,7 @@ namespace BibNumberDetectionUI
             return lab;
         }
 
-        double[] lab2lch(double[] lab)
+        static double[] lab2lch(double[] lab)
         {
             double[] lch = new double[3];
 
@@ -959,7 +1154,7 @@ namespace BibNumberDetectionUI
             return lch;
         }
 
-        double deltaE2000(byte[] bgr1, byte[] bgr2)
+        static double deltaE2000(byte[] bgr1, byte[] bgr2)
         {
             double[] xyz1, xyz2, lab1, lab2, lch1, lch2;
             xyz1 = bgr2xyz(bgr1);
@@ -972,7 +1167,7 @@ namespace BibNumberDetectionUI
         }
 
 
-        double deltaE2000(double[] lch1, double[] lch2)
+        static double deltaE2000(double[] lch1, double[] lch2)
         {
             double avg_L = ( lch1[0] + lch2[0] ) * 0.5;
             double delta_L = lch2[0] - lch1[0];
@@ -1025,9 +1220,9 @@ namespace BibNumberDetectionUI
             var greenCenterByte = bChannel.GetData(centralPixel.X, centralPixel.Y);
             var blueCenterByte = bChannel.GetData(centralPixel.X, centralPixel.Y);
 
-            var redCenter = Convert.ToInt32(redCenterByte[0]);
-            var greenCenter = Convert.ToInt32(greenCenterByte[0]);
-            var blueCenter = Convert.ToInt32(blueCenterByte[0]);
+            var redCenter = (byte)Convert.ToInt32(redCenterByte[0]);
+            var greenCenter = (byte)Convert.ToInt32(greenCenterByte[0]);
+            var blueCenter = (byte)Convert.ToInt32(blueCenterByte[0]);
 
             var coefficients = new double[8];
 
@@ -1035,19 +1230,20 @@ namespace BibNumberDetectionUI
             {
                 var point = neighbours[dIndex];
                 var redByte = rChannel.GetData(point.X, point.Y);
-                var greenByte = bChannel.GetData(point.X, point.Y);
+                var greenByte = gChannel.GetData(point.X, point.Y);
                 var blueByte = bChannel.GetData(point.X, point.Y);
 
-                var red = Convert.ToInt32(redByte[0]);
-                var green = Convert.ToInt32(greenByte[0]);
-                var blue = Convert.ToInt32(blueByte[0]);
+                var red = (byte)Convert.ToInt32(redByte[0]);
+                var green = (byte)Convert.ToInt32(greenByte[0]);
+                var blue = (byte)Convert.ToInt32(blueByte[0]);
 
 
 
                 var d = (double)(Math.Abs(redCenter - red) + Math.Abs(greenCenter - green) + Math.Abs(blueCenter - blue)) / (3 * 255);
-
+                var delta2000 = deltaE2000(new byte[] { blue, green, red }, new byte[] { blueCenter, greenCenter, redCenter });
                 //Debug.WriteLine("d: " + d);
-
+                //var deltaPercentage = delta2000/100.0;
+                //Debug.Assert(deltaPercentage <= 1);
 
                 var c = Math.Pow((1 - d), p);
 
@@ -1065,7 +1261,7 @@ namespace BibNumberDetectionUI
             {
                 var point = neighbours[dIndex];
                 var redByte = rChannel.GetData(point.X, point.Y);
-                var greenByte = bChannel.GetData(point.X, point.Y);
+                var greenByte = gChannel.GetData(point.X, point.Y);
                 var blueByte = bChannel.GetData(point.X, point.Y);
 
                 var red = Convert.ToInt32(redByte[0]);
