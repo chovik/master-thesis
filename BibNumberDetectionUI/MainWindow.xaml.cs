@@ -182,6 +182,37 @@ namespace BibNumberDetectionUI
                             
                             await Dispatcher.BeginInvoke(updateListAction,
                                 null);
+
+                            var rows = image.Rows;
+                            var cols = image.Cols;
+
+                                var colorConvertArray = new double[,] 
+                                {
+                                    {0.2989360212937753847527155, 0.5870430744511212909351327,  0.1140209042551033243121518},
+                                    {0.5,                         0.5,                         -1},
+                                    {1,                          -1,                            0}
+                                };
+
+                                var reshapedArrayLength = rows * cols;
+
+                                var reshapedArray = new double[reshapedArrayLength, 3];
+
+                            Matrix<double> colorconvert = new Matrix<double>(colorConvertArray);
+
+                            
+
+                            for(int rowIndex = 0; rowIndex < rows; rowIndex++)
+                            {
+                                for(int colIndex = 0; colIndex < cols; colIndex++)
+                                {
+                                    reshapedArray[(rowIndex * cols) + colIndex, 0] = image.GetData(rowIndex, colIndex)[0];
+                                    reshapedArray[(rowIndex * cols) + colIndex, 1] = image.GetData(rowIndex, colIndex)[1];
+                                    reshapedArray[(rowIndex * cols) + colIndex, 2] = image.GetData(rowIndex, colIndex)[2];
+                                }
+                            }
+
+                            Matrix<double> pic = new Matrix<double>(rows * cols, 3, 1);
+                            var img = pic * colorconvert;
                             
                             //Mat aaa = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(5,9), new System.Drawing.Point(2, 4));
                             //CvInvoke.Dilate(filterImage2, filterImage, aaa, new System.Drawing.Point(-1, -1), 1, BorderType.Replicate, new MCvScalar(255, 0, 0, 255));
