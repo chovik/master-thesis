@@ -230,7 +230,7 @@ namespace BibNumberDetectionUI
         async Task BinaryImage(Mat gray, Mat canny = null)
         {
             var image = gray;
-            using (Mat image2 = new Mat(@"IMG_6765-Gray-sharp.jpg", LoadImageType.Grayscale))
+            using (Mat image2 = new Mat(@"Koice-66-Gray-sharp.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
                 await Dispatcher.BeginInvoke(_addImageToTheList,
@@ -240,110 +240,186 @@ namespace BibNumberDetectionUI
 
                 var increasedContrasstArray = ChangeContrast(image2, 80);
 
-                using(var changedContrastImg = new Image<Gray, byte>(increasedContrasstArray))
+                using (var changedContrastImg = new Image<Gray, byte>(increasedContrasstArray))
                 {
                     await Dispatcher.BeginInvoke(_addImageToTheList,
                     changedContrastImg.Mat);
 
-                    CvInvoke.Canny(changedContrastImg, cannyImage, 150, 220, 3, false);
-                    await Dispatcher.BeginInvoke(_addImageToTheList,
-                        cannyImage);
+                    //CvInvoke.Threshold(changedContrastImg, cannyImage, 200, 255, ThresholdType.Binary);
 
-                    Matrix<byte> imageMatrix = new Matrix<byte>(image.Size);
-                    image.CopyTo(imageMatrix);
+                    //using(Mat sobel = new Mat())
+                    //{
 
-                    Matrix<byte> cannyMatrix = new Matrix<byte>(cannyImage.Size);
+                    //}
 
-                    if (canny == null)
+                    Matrix<byte> sobelMatrix = new Matrix<byte>(image.Size);
+
+                    var sobelX = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
+                    var sobelY = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
+
+                    CvInvoke.Sobel(changedContrastImg, sobelX, DepthType.Cv8U, 1, 0);
+                    CvInvoke.Sobel(changedContrastImg, sobelY, DepthType.Cv8U, 0, 1);
+
+
+
+                    for (int rowIndex = 0; rowIndex < changedContrastImg.Rows; rowIndex++)
                     {
-                        cannyImage.CopyTo(cannyMatrix);
-                    }
-                    else
-                    {
-                        canny.CopyTo(cannyMatrix);
-                    }
-
-
-                    var skeletonMatrix = new Matrix<double>(image.Size);
-                    //imageMatrix.Mul(cannyMatrix);
-
-                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                    {
-                        cannyMatrix[rowIndex, 0] = 255;
-                        cannyMatrix[rowIndex, image.Cols - 1] = 255;
-                    }
-
-                    for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
-                    {
-                        cannyMatrix[0, columnIndex] = 255;
-                        cannyMatrix[image.Rows - 1, columnIndex] = 255;
-                    }
-
-                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                    {
-                        for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                        for (int columnIndex = 0; columnIndex < changedContrastImg.Cols; columnIndex++)
                         {
-                            skeletonMatrix[rowIndex, columnIndex] = imageMatrix[rowIndex, columnIndex] * (cannyMatrix[rowIndex, columnIndex] / 255);
+                            var rX = sobelX.GetData(rowIndex, columnIndex)[0];
+                            var rY = sobelY.GetData(rowIndex, columnIndex)[0];
+                           sobelMatrix[rowIndex, columnIndex] = ToByte(Math.Sqrt(rX * rX + rY * rY));
                         }
                     }
 
 
 
-                    var intersectionSurfaceMatrix = CreateIntersectionSurfaceMatrix(cannyMatrix, imageMatrix, skeletonMatrix);
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                            sobelMatrix.Mat);
 
-                    var doubleImageMatrix = imageMatrix.Convert<double>();
-                    var differenceMatrix = intersectionSurfaceMatrix - doubleImageMatrix;
+                    CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3);
 
-                    var binary1Matrix = new Matrix<byte>(image.Size);
-                    var binary2Matrix = new Matrix<byte>(image.Size);
+                        CvInvoke.Canny(image, cannyImage, 70, 190, 3, false);
+                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                            sobelMatrix.Mat);
 
-                    double pt = 10;
-                    double nt = 10;
 
-                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                    {
-                        for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                    Matrix<byte> mask = new Matrix<byte>(image.Size);
+
+                        int dilSize = 2;
+                        Mat se1 = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(2 * dilSize + 1, 2 * dilSize + 1), new System.Drawing.Point(dilSize, dilSize));
+                        dilSize = 1;
+                        Mat se2 = CvInvoke.GetStructuringElement(Emgu.CV.CvEnum.ElementShape.Rectangle, new System.Drawing.Size(2 * dilSize + 1, 2 * dilSize + 1), new System.Drawing.Point(dilSize, dilSize));
+                        //CvInvoke.MorphologyEx(sobelMatrix, mask, MorphOp.Close, se1, new System.Drawing.Point(0, 0), 1, BorderType.Default, new MCvScalar(255, 0, 0, 255));
+
+                        //await Dispatcher.BeginInvoke(_addImageToTheList,
+                        //            mask.Mat);
+
+
+                        CvInvoke.MorphologyEx(sobelMatrix, mask, MorphOp.Open, se2, new System.Drawing.Point(0, 0), 1, BorderType.Default, new MCvScalar(255, 0, 0, 255));
+                        //CvInvoke.Erode(sobelMatrix, sobelMatrix, se1, new System.Drawing.Point(0, 0), 1, BorderType.Default, new MCvScalar(255, 0, 0, 255));
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    mask.Mat);
+
+                        var maskedSobel = new Matrix<byte>(image.Size);
+
+                        for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
                         {
-                            var diffValue = differenceMatrix[rowIndex, columnIndex];
-                            if (diffValue > pt)
+                            for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
                             {
-                                binary1Matrix[rowIndex, columnIndex] = 255;
-                            }
-                            else
-                            {
-                                binary1Matrix[rowIndex, columnIndex] = 0;
-                            }
-
-                            if (diffValue < -nt)
-                            {
-                                binary2Matrix[rowIndex, columnIndex] = 255;
-                            }
-                            else
-                            {
-                                binary2Matrix[rowIndex, columnIndex] = 0;
+                                maskedSobel[rowIndex, columnIndex] = ToByte(sobelMatrix[rowIndex, columnIndex] * (mask[rowIndex, columnIndex] / 255));
                             }
                         }
+                        //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 160, 255, ThresholdType.Binary);
+
+                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                maskedSobel.Mat);
+
+                       
+                    //CvInvoke.Erode(sobelMatrix, sobelMatrix, aaa, new System.Drawing.Point(0, 0), 1, BorderType.Default, new MCvScalar(255, 0, 0, 255));
+
+                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                                sobelMatrix.Mat);
+
+                        sobelMatrix.Save("canny.jpg");
+
+                        Matrix<byte> imageMatrix = new Matrix<byte>(image.Size);
+                        image.CopyTo(imageMatrix);
+
+                        Matrix<byte> cannyMatrix = new Matrix<byte>(cannyImage.Size);
+
+                        CvInvoke.Threshold(sobelMatrix, sobelMatrix, 80, 255, ThresholdType.Binary);
+
+                        if (canny == null)
+                        {
+                            sobelMatrix.CopyTo(cannyMatrix);
+                        }
+                        else
+                        {
+                            sobelMatrix.CopyTo(cannyMatrix);
+                        }
+
+                        
+
+
+                        var skeletonMatrix = new Matrix<double>(image.Size);
+                        //imageMatrix.Mul(cannyMatrix);
+
+                        for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                        {
+                            cannyMatrix[rowIndex, 0] = 255;
+                            cannyMatrix[rowIndex, image.Cols - 1] = 255;
+                        }
+
+                        for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                        {
+                            cannyMatrix[0, columnIndex] = 255;
+                            cannyMatrix[image.Rows - 1, columnIndex] = 255;
+                        }
+
+                        for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                        {
+                            for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                            {
+                                skeletonMatrix[rowIndex, columnIndex] = imageMatrix[rowIndex, columnIndex] * (cannyMatrix[rowIndex, columnIndex] / 255);
+                            }
+                        }
+
+
+
+                        var intersectionSurfaceMatrix = CreateIntersectionSurfaceMatrix(cannyMatrix, imageMatrix, skeletonMatrix);
+
+                        var doubleImageMatrix = imageMatrix.Convert<double>();
+                        var differenceMatrix = intersectionSurfaceMatrix - doubleImageMatrix;
+
+                        var binary1Matrix = new Matrix<byte>(image.Size);
+                        var binary2Matrix = new Matrix<byte>(image.Size);
+
+                        double pt = 10;
+                        double nt = 10;
+
+                        for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                        {
+                            for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                            {
+                                var diffValue = differenceMatrix[rowIndex, columnIndex];
+                                if (diffValue > pt)
+                                {
+                                    binary1Matrix[rowIndex, columnIndex] = 255;
+                                }
+                                else
+                                {
+                                    binary1Matrix[rowIndex, columnIndex] = 0;
+                                }
+
+                                if (diffValue < -nt)
+                                {
+                                    binary2Matrix[rowIndex, columnIndex] = 255;
+                                }
+                                else
+                                {
+                                    binary2Matrix[rowIndex, columnIndex] = 0;
+                                }
+                            }
+                        }
+
+                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                            binary1Matrix.Mat);
+
+                        binary1Matrix.Save("binary1Matrix.jpg");
+
+                        await Dispatcher.BeginInvoke(_addImageToTheList,
+                            binary2Matrix.Mat);
+
+                        binary2Matrix.Save("binary2Matrix.jpg");
                     }
 
-                    await Dispatcher.BeginInvoke(_addImageToTheList,
-                        binary1Matrix.Mat);
 
-                    binary1Matrix.Save("binary1Matrix.jpg");
-
-                    await Dispatcher.BeginInvoke(_addImageToTheList,
-                        binary2Matrix.Mat);
-
-                    binary2Matrix.Save("binary2Matrix.jpg");
-                }
-
-
-                //CvInvoke.BilateralFilter(image, cannyImage, 4, 4, 4);
-                //CvInvoke.Laplacian(image, cannyImage, DepthType.Cv8U);
-                //CvInvoke.Threshold(cannyImage, cannyImage, 40, 255, ThresholdType.Binary);
-                //await Dispatcher.BeginInvoke(_addImageToTheList,
-                //    cannyImage);
-                
-
+                    //CvInvoke.BilateralFilter(image, cannyImage, 4, 4, 4);
+                    //CvInvoke.Laplacian(image, cannyImage, DepthType.Cv8U);
+                    //CvInvoke.Threshold(cannyImage, cannyImage, 40, 255, ThresholdType.Binary);
+                    //await Dispatcher.BeginInvoke(_addImageToTheList,
+                    //    cannyImage);
 
 
                 //using(Mat skeletonMat  = new Mat())
@@ -358,7 +434,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_6765-Gray.jpg", LoadImageType.Grayscale))
+                    using (Mat image = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
