@@ -230,93 +230,119 @@ namespace BibNumberDetectionUI
         async Task BinaryImage(Mat gray, Mat canny = null)
         {
             var image = gray;
+            using (Mat image2 = new Mat(@"IMG_6765-Gray-sharp.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
-                CvInvoke.Canny(image, cannyImage, 90, 170, 3, false);
                 await Dispatcher.BeginInvoke(_addImageToTheList,
-                    cannyImage);
+                    image);
+                await Dispatcher.BeginInvoke(_addImageToTheList,
+                    image2);
 
-                Matrix<byte> imageMatrix = new Matrix<byte>(image.Size);
-                image.CopyTo(imageMatrix);
+                var increasedContrasstArray = ChangeContrast(image2, 80);
 
-                Matrix<byte> cannyMatrix = new Matrix<byte>(cannyImage.Size);
-
-                if (canny == null)
+                using(var changedContrastImg = new Image<Gray, byte>(increasedContrasstArray))
                 {
-                    cannyImage.CopyTo(cannyMatrix);
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                    changedContrastImg.Mat);
+
+                    CvInvoke.Canny(changedContrastImg, cannyImage, 150, 220, 3, false);
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                        cannyImage);
+
+                    Matrix<byte> imageMatrix = new Matrix<byte>(image.Size);
+                    image.CopyTo(imageMatrix);
+
+                    Matrix<byte> cannyMatrix = new Matrix<byte>(cannyImage.Size);
+
+                    if (canny == null)
+                    {
+                        cannyImage.CopyTo(cannyMatrix);
+                    }
+                    else
+                    {
+                        canny.CopyTo(cannyMatrix);
+                    }
+
+
+                    var skeletonMatrix = new Matrix<double>(image.Size);
+                    //imageMatrix.Mul(cannyMatrix);
+
+                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                    {
+                        cannyMatrix[rowIndex, 0] = 255;
+                        cannyMatrix[rowIndex, image.Cols - 1] = 255;
+                    }
+
+                    for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                    {
+                        cannyMatrix[0, columnIndex] = 255;
+                        cannyMatrix[image.Rows - 1, columnIndex] = 255;
+                    }
+
+                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                    {
+                        for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                        {
+                            skeletonMatrix[rowIndex, columnIndex] = imageMatrix[rowIndex, columnIndex] * (cannyMatrix[rowIndex, columnIndex] / 255);
+                        }
+                    }
+
+
+
+                    var intersectionSurfaceMatrix = CreateIntersectionSurfaceMatrix(cannyMatrix, imageMatrix, skeletonMatrix);
+
+                    var doubleImageMatrix = imageMatrix.Convert<double>();
+                    var differenceMatrix = intersectionSurfaceMatrix - doubleImageMatrix;
+
+                    var binary1Matrix = new Matrix<byte>(image.Size);
+                    var binary2Matrix = new Matrix<byte>(image.Size);
+
+                    double pt = 10;
+                    double nt = 10;
+
+                    for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
+                    {
+                        for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
+                        {
+                            var diffValue = differenceMatrix[rowIndex, columnIndex];
+                            if (diffValue > pt)
+                            {
+                                binary1Matrix[rowIndex, columnIndex] = 255;
+                            }
+                            else
+                            {
+                                binary1Matrix[rowIndex, columnIndex] = 0;
+                            }
+
+                            if (diffValue < -nt)
+                            {
+                                binary2Matrix[rowIndex, columnIndex] = 255;
+                            }
+                            else
+                            {
+                                binary2Matrix[rowIndex, columnIndex] = 0;
+                            }
+                        }
+                    }
+
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                        binary1Matrix.Mat);
+
+                    binary1Matrix.Save("binary1Matrix.jpg");
+
+                    await Dispatcher.BeginInvoke(_addImageToTheList,
+                        binary2Matrix.Mat);
+
+                    binary2Matrix.Save("binary2Matrix.jpg");
                 }
-                else
-                {
-                    canny.CopyTo(cannyMatrix);
-                }
+
+
+                //CvInvoke.BilateralFilter(image, cannyImage, 4, 4, 4);
+                //CvInvoke.Laplacian(image, cannyImage, DepthType.Cv8U);
+                //CvInvoke.Threshold(cannyImage, cannyImage, 40, 255, ThresholdType.Binary);
+                //await Dispatcher.BeginInvoke(_addImageToTheList,
+                //    cannyImage);
                 
-
-                var skeletonMatrix = new Matrix<double>(image.Size);
-                //imageMatrix.Mul(cannyMatrix);
-
-                for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                {
-                    cannyMatrix[rowIndex, 0] = 255;
-                    cannyMatrix[rowIndex, image.Cols - 1] = 255;
-                }
-
-                for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
-                {
-                    cannyMatrix[0, columnIndex] = 255;
-                    cannyMatrix[image.Rows - 1, columnIndex] = 255;
-                }
-
-                for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                {
-                    for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
-                    {
-                        skeletonMatrix[rowIndex, columnIndex] = imageMatrix[rowIndex, columnIndex] * (cannyMatrix[rowIndex, columnIndex] / 255);
-                    }
-                }
-
-
-
-                var intersectionSurfaceMatrix = CreateIntersectionSurfaceMatrix(cannyMatrix, imageMatrix, skeletonMatrix);
-
-                var doubleImageMatrix = imageMatrix.Convert<double>();
-                var differenceMatrix = intersectionSurfaceMatrix - doubleImageMatrix;
-
-                var binary1Matrix = new Matrix<byte>(image.Size);
-                var binary2Matrix = new Matrix<byte>(image.Size);
-
-                double pt = 10;
-                double nt = 10;
-
-                for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
-                {
-                    for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
-                    {
-                        var diffValue = differenceMatrix[rowIndex, columnIndex];
-                        if (diffValue > pt)
-                        {
-                            binary1Matrix[rowIndex, columnIndex] = 255;
-                        }
-                        else
-                        {
-                            binary1Matrix[rowIndex, columnIndex] = 0;
-                        }
-
-                        if (diffValue < -nt)
-                        {
-                            binary2Matrix[rowIndex, columnIndex] = 255;
-                        }
-                        else
-                        {
-                            binary2Matrix[rowIndex, columnIndex] = 0;
-                        }
-                    }
-                }
-
-                await Dispatcher.BeginInvoke(_addImageToTheList,
-                    binary1Matrix.Mat);
-
-                await Dispatcher.BeginInvoke(_addImageToTheList,
-                    binary2Matrix.Mat);
 
 
 
@@ -332,7 +358,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
+                    using (Mat image = new Mat(@"IMG_6765-Gray.jpg", LoadImageType.Grayscale))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
@@ -1659,18 +1685,18 @@ namespace BibNumberDetectionUI
         public byte[,,] ChangeContrast(Mat img, double a, double b = 128)
         {
             //a = 50;
-            byte[,,] data = new byte[img.Rows, img.Cols, 3];
+            byte[,,] data = new byte[img.Rows, img.Cols, img.NumberOfChannels];
 
             var factor = (259 * (a + 255)) / (255 * (259 - a));
 
 
-            if (img.NumberOfChannels == 3)
-            {
+            //if (img.NumberOfChannels == 3)
+            //{
                 for (int row = 0; row < img.Rows; row++)
                 {
                     for (int column = 0; column < img.Cols; column++)
                     {
-                        for (int channel = 0; channel < 3; channel++)
+                        for (int channel = 0; channel < img.NumberOfChannels; channel++)
                         {
                             var oldValue = img.GetData(row, column)[channel];
                             var val = factor * (oldValue - b) + b;
@@ -1688,7 +1714,7 @@ namespace BibNumberDetectionUI
                             data[row, column, channel] = (byte)newValue;
                         }
                     }
-                }
+                //}
             }
 
             return data;
