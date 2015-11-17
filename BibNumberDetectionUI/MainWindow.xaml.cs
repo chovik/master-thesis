@@ -256,7 +256,7 @@ namespace BibNumberDetectionUI
             var image = gray;
             var imageData = EdgePreservingSmoothingBW(gray, 5);
 
-            using(Image<Gray, byte> edgeSmoothingImage = new Image<Gray, byte>(imageData))
+            using (Matrix<byte> edgeSmoothingImage = new Matrix<byte>(imageData))
             using (Mat image2 = new Mat(@"IMG_6765-Gray-sharp.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
@@ -313,14 +313,18 @@ namespace BibNumberDetectionUI
 
                     sobelMatrix.Save("sobelMatrix.bmp");
 
-                    CvInvoke.Laplacian(edgeSmoothingImage, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
+                    CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
 
                     sobelMatrix.Save("laplacian.bmp");
 
                     //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 170, 255, ThresholdType.Binary);//170-190
                     //CvInvoke.AdaptiveThreshold(sobelMatrix, sobelMatrix, 255, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 2);
 
-                    var thresholdEdge = CustomThreshold(sobelMatrix, 13);
+                    var edgeSmoothBWAray = EdgePreservingSmoothingBW(sobelMatrix.Mat, 5);
+
+                    var thresholdEdge = CustomThreshold(new Matrix<byte>(edgeSmoothBWAray), 13);
+
+                    
 
                     Matrix<byte> thresholdEdgeMatrix = new Matrix<byte>(thresholdEdge);
 
@@ -537,7 +541,34 @@ namespace BibNumberDetectionUI
 
         byte[,] CustomThreshold(Matrix<byte> img, int size)
         {
-            byte[, ] fitleredValues = new byte[img.Rows, img.Cols];
+            var globalMean = 0;
+            var globalCount = 0;
+            var globalMax = 0;
+
+            for(int rowIndex = 0; rowIndex < img.Rows; rowIndex++)
+            {
+                for(int columnIndex = 0; columnIndex < img.Cols; columnIndex++)
+                {
+                    var val = img[rowIndex, columnIndex];
+
+                    if(val > 0)
+                    {
+                        if(val > globalMax)
+                        {
+                            globalMax = val;
+                        }
+
+                        globalMean += val;
+                        globalCount++;
+                    }
+                }
+            }
+
+            globalMean = globalMean / globalCount;
+
+            
+
+            byte[,] fitleredValues = new byte[img.Rows, img.Cols];
 
             var xIterations = Math.Truncate(((double)img.Cols / size));
             var yIterations = Math.Truncate(((double)img.Rows / size));
@@ -581,7 +612,7 @@ namespace BibNumberDetectionUI
                         mean = mean / count;
                     }
 
-                    var threshold = 0.45 * max;
+                    var threshold = globalMean;
 
                     for (int row = yAreaIndex * size; row < (yAreaIndex + 1) * size; row++)
                     {
@@ -1644,9 +1675,9 @@ namespace BibNumberDetectionUI
             return centralValue <= minValue;
         }
 
-        public static byte[, ,] EdgePreservingSmoothingBW(Mat img, int numberOfCycles = 5)
+        public static byte[,] EdgePreservingSmoothingBW(Mat img, int numberOfCycles = 5)
         {
-            byte[, ,] resultValues = new byte[img.Rows, img.Cols, 1];
+            byte[,] resultValues = new byte[img.Rows, img.Cols];
 
             for (int i = 0; i < 1; i++)
             {
@@ -1669,17 +1700,17 @@ namespace BibNumberDetectionUI
                             || columnIndex == cols - 1)
                         {
                             //pixel is on the border
-                            resultValues[rowIndex, columnIndex, 0] = 0;
+                            resultValues[rowIndex, columnIndex] = 0;
                             continue;
                         }
 
                         var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
-                        resultValues[rowIndex, columnIndex, 0] = Convert.ToByte(newValue);
+                        resultValues[rowIndex, columnIndex] = Convert.ToByte(newValue);
                     }
                 }
 
-                Image<Gray, byte> img2 = new Image<Gray, byte>(resultValues);
-                img = img2.Mat;
+                //Image<Gray, byte> img2 = new Image<Gray, byte>(resultValues);
+                //img = img2.Mat;
             }
 
 
