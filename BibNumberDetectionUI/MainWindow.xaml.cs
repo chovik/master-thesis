@@ -257,7 +257,7 @@ namespace BibNumberDetectionUI
             var imageData = EdgePreservingSmoothingBW(gray, 5);
 
             using(Image<Gray, byte> edgeSmoothingImage = new Image<Gray, byte>(imageData))
-            using (Mat image2 = new Mat(@"IMG_7460-Gray-sharp.jpg", LoadImageType.Grayscale))
+            using (Mat image2 = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
                 await Dispatcher.BeginInvoke(_addImageToTheList,
@@ -313,7 +313,7 @@ namespace BibNumberDetectionUI
 
                     sobelMatrix.Save("sobelMatrix.bmp");
 
-                    CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3);
+                    CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
 
                     sobelMatrix.Save("laplacian.bmp");
 
@@ -472,15 +472,16 @@ namespace BibNumberDetectionUI
                         var binary1Matrix = new Matrix<byte>(image.Size);
                         var binary2Matrix = new Matrix<byte>(image.Size);
 
-                        double pt = 30;
-                        double nt = 30;
+                        double pt = 15;
+                        double nt = 15;
 
                         for (int rowIndex = 0; rowIndex < image.Rows; rowIndex++)
                         {
                             for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
                             {
                                 var diffValue = differenceMatrix[rowIndex, columnIndex];
-                                if (diffValue > pt)
+                                if (diffValue > pt
+                                    || cannyMatrix[rowIndex, columnIndex] == 255)
                                 {
                                     binary1Matrix[rowIndex, columnIndex] = 255;
                                 }
@@ -489,7 +490,8 @@ namespace BibNumberDetectionUI
                                     binary1Matrix[rowIndex, columnIndex] = 0;
                                 }
 
-                                if (diffValue < -nt)
+                                if (diffValue < -nt
+                                    || cannyMatrix[rowIndex, columnIndex] == 255)
                                 {
                                     binary2Matrix[rowIndex, columnIndex] = 255;
                                 }
@@ -531,7 +533,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7460-Gray.jpg", LoadImageType.Grayscale))
+                    using (Mat image = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
