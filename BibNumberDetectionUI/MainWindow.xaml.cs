@@ -257,7 +257,7 @@ namespace BibNumberDetectionUI
             var imageData = EdgePreservingSmoothingBW(gray, 5);
 
             using(Image<Gray, byte> edgeSmoothingImage = new Image<Gray, byte>(imageData))
-            using (Mat image2 = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
+            using (Mat image2 = new Mat(@"IMG_6765-Gray-sharp.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
                 await Dispatcher.BeginInvoke(_addImageToTheList,
@@ -313,11 +313,18 @@ namespace BibNumberDetectionUI
 
                     sobelMatrix.Save("sobelMatrix.bmp");
 
-                    CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
+                    CvInvoke.Laplacian(edgeSmoothingImage, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
 
                     sobelMatrix.Save("laplacian.bmp");
 
-                    CvInvoke.Threshold(sobelMatrix, sobelMatrix, 190, 255, ThresholdType.Binary);
+                    //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 170, 255, ThresholdType.Binary);//170-190
+                    //CvInvoke.AdaptiveThreshold(sobelMatrix, sobelMatrix, 255, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 2);
+
+                    var thresholdEdge = CustomThreshold(sobelMatrix, 13);
+
+                    Matrix<byte> thresholdEdgeMatrix = new Matrix<byte>(thresholdEdge);
+
+                    thresholdEdgeMatrix.Save("laplacian-threshold-2.bmp");
 
                     sobelMatrix.Save("laplacian-threshold.bmp");
 
@@ -349,7 +356,7 @@ namespace BibNumberDetectionUI
                         {
                             for (int columnIndex = 0; columnIndex < image.Cols; columnIndex++)
                             {
-                                maskedSobel[rowIndex, columnIndex] = ToByte(sobelMatrix[rowIndex, columnIndex] * (mask[rowIndex, columnIndex] / 255));
+                                maskedSobel[rowIndex, columnIndex] = ToByte(thresholdEdgeMatrix[rowIndex, columnIndex] * (mask[rowIndex, columnIndex] / 255));
                             }
                         }
                         //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 160, 255, ThresholdType.Binary);
@@ -374,11 +381,11 @@ namespace BibNumberDetectionUI
 
                         if (canny == null)
                         {
-                            sobelMatrix.CopyTo(cannyMatrix);
+                            thresholdEdgeMatrix.CopyTo(cannyMatrix);
                         }
                         else
                         {
-                            sobelMatrix.CopyTo(cannyMatrix);
+                            thresholdEdgeMatrix.CopyTo(cannyMatrix);
                         }
 
                         
@@ -528,12 +535,92 @@ namespace BibNumberDetectionUI
             }
         }
 
+        byte[,] CustomThreshold(Matrix<byte> img, int size)
+        {
+            byte[, ] fitleredValues = new byte[img.Rows, img.Cols];
+
+            var xIterations = Math.Truncate(((double)img.Cols / size));
+            var yIterations = Math.Truncate(((double)img.Rows / size));
+
+            for (int yAreaIndex = 0; yAreaIndex < yIterations; yAreaIndex++)
+            {
+                for (int xAreaIndex = 0; xAreaIndex < xIterations; xAreaIndex++)
+                {
+                    var mean = 0;
+                    int count = 0;
+                    var max = 0;
+                    for (int row = yAreaIndex * size; row < (yAreaIndex + 1) * size; row++)
+                    {
+                        for (int column = xAreaIndex * size; column < (xAreaIndex + 1) * size; column++)
+                        {
+                            if(row >= img.Rows
+                                || column >= img.Cols)
+                            {
+
+                            }
+                            else
+                            {
+                                var val = img[row, column];
+                                if(val > 0)
+                                {
+                                    if (val > max)
+                                    {
+                                        max = val;
+                                    }
+
+                                    mean += val;
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+
+
+                    if(count > 0)
+                    {
+                        mean = mean / count;
+                    }
+
+                    var threshold = 0.45 * max;
+
+                    for (int row = yAreaIndex * size; row < (yAreaIndex + 1) * size; row++)
+                    {
+                        for (int column = xAreaIndex * size; column < (xAreaIndex + 1) * size; column++)
+                        {
+                            if (row >= img.Rows
+                                || column >= img.Cols)
+                            {
+
+                            }
+                            else
+                            {
+                                var val = img[row, column];
+                                if (val < threshold
+                                    || threshold == 0)
+                                {
+                                    fitleredValues[row, column] = 0;
+                                }
+                                else
+                                {
+                                    fitleredValues[row, column] = 255;
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+
+
+                return fitleredValues;
+        }
+
 
         async Task Run()
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"Koice-66-Gray.jpg", LoadImageType.Grayscale))
+                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.Grayscale))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
