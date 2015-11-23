@@ -680,7 +680,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_6765.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"IMG_7655.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
