@@ -257,7 +257,7 @@ namespace BibNumberDetectionUI
             var imageData = EdgePreservingSmoothingBW(gray, 5);
 
             using (Matrix<byte> edgeSmoothingImage = new Matrix<byte>(imageData))
-            using (Mat image2 = new Mat(@"IMG_6765-Gray-sharp.jpg", LoadImageType.Grayscale))
+            using (Mat image2 = new Mat(@"IMG_0041-Gray.jpg", LoadImageType.Grayscale))
             using (Mat cannyImage = new Mat())
             {
                 await Dispatcher.BeginInvoke(_addImageToTheList,
@@ -321,8 +321,12 @@ namespace BibNumberDetectionUI
                     //CvInvoke.AdaptiveThreshold(sobelMatrix, sobelMatrix, 255, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 2);
 
                     var edgeSmoothBWAray = EdgePreservingSmoothingBW(sobelMatrix.Mat, 5);
+                    
+                    var edgeMatrix = new Matrix<byte>(edgeSmoothBWAray);
 
-                    var thresholdEdge = CustomThreshold(new Matrix<byte>(edgeSmoothBWAray), 13);
+                    edgeMatrix.Save("laplacian-edgeMatrix.bmp");
+
+                    var thresholdEdge = CustomThreshold(edgeMatrix, 13);
 
                     
 
@@ -651,7 +655,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.Grayscale))
+                    using (Mat image = new Mat(@"IMG_6765-Gray.jpg", LoadImageType.Grayscale))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
@@ -1703,9 +1707,18 @@ namespace BibNumberDetectionUI
                             resultValues[rowIndex, columnIndex] = 0;
                             continue;
                         }
-
-                        var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
-                        resultValues[rowIndex, columnIndex] = Convert.ToByte(newValue);
+                        var oldValue = img.GetData(rowIndex, columnIndex)[0];
+                        if(oldValue == 0)
+                        {
+                            //var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
+                            resultValues[rowIndex, columnIndex] = Convert.ToByte(oldValue);
+                        }
+                        else
+                        {
+                            var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
+                            resultValues[rowIndex, columnIndex] = Convert.ToByte(newValue);
+                        }
+                        
                     }
                 }
 
