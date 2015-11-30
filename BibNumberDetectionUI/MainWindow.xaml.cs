@@ -654,10 +654,10 @@ namespace BibNumberDetectionUI
                     //var connectedComponents = FindBlobs(binary1Matrix.Mat, number);
                     CvInvoke.FindContours(binary1Matrix.Mat.Clone(), contoursVector, null, RetrType.List, ChainApproxMethod.ChainApproxNone);
 
-                    var minWidth = 0.045 * gray.Width;
+                    var minWidth = 0.04 * gray.Width;
                     var maxWidth = 0.25 * gray.Width;
 
-                    var minHeight = 0.045 * gray.Height;
+                    var minHeight = 0.04 * gray.Height;
                     var maxHeight = 0.25 * gray.Height;
 
                     Mat detectedDigits = new Mat();
@@ -678,7 +678,7 @@ namespace BibNumberDetectionUI
                             && compRectangle.Height >= minHeight
                             && compRectangle.Height <= maxHeight
                             && (ratio <= 0.9
-                            && inversedRatio <= 1.7))
+                            && inversedRatio <= 2))
                         {
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
