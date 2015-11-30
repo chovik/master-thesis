@@ -55,6 +55,9 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ConnectedComponentLabeling">
+      <HintPath>..\libs\ConnectedComponentLabeling.dll</HintPath>
+    </Reference>
     <Reference Include="Emgu.CV">
       <HintPath>..\..\bin\Emgu.CV.dll</HintPath>
     </Reference>
