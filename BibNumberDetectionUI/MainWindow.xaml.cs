@@ -276,7 +276,7 @@ namespace BibNumberDetectionUI
             return matrix;
         }
 
-        async Task BinaryImage(Mat gray, int number, Mat canny = null)
+        async Task BinaryImage(Mat gray, int number, Mat canny = null, Mat color = null)
         {
             var image = gray;
             image.Save("image-" + number + ".bmp");
@@ -285,12 +285,11 @@ namespace BibNumberDetectionUI
             {
                 using (var gausssian2 = new Image<Gray, byte>(image.Size))
                 {
-                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(13, 13), 0);
-                    CvInvoke.GaussianBlur(gray, gausssian2, new System.Drawing.Size(0, 0), 0);
+                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(33, 33), 0);
+                    CvInvoke.GaussianBlur(gray, gausssian2, new System.Drawing.Size(1, 1), 0);
                     var result = gausssian1 - gausssian2;
                     result.Save("gauss-dog-" + number + ".bmp");
-                }
-            }
+               
             
 
             var imageData = EdgePreservingSmoothingBW(gray, 5);
@@ -358,12 +357,22 @@ namespace BibNumberDetectionUI
 
                     CvInvoke.Laplacian(image, sobelMatrix, DepthType.Cv8U, 3, 1, 0, BorderType.Default);
 
-                    sobelMatrix.Save("laplacian" + number + ".bmp");
+                    
+
+                        sobelMatrix.Save("laplacian" + number + ".bmp");
 
                     //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 170, 255, ThresholdType.Binary);//170-190
                     //CvInvoke.AdaptiveThreshold(sobelMatrix, sobelMatrix, 255, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 2);
 
-                    var edgeSmoothBWAray = EdgePreservingSmoothingBW(sobelMatrix.Mat, 12);
+                        for (int row = 0; row < sobelMatrix.Rows; row++)
+                        {
+                            for (int column = 0; column < sobelMatrix.Cols; column++)
+                            {
+                                sobelMatrix[row, column] = result.Data[row, column, 0];
+                            }
+                        }
+
+                        var edgeSmoothBWAray = ToArray(sobelMatrix.Mat);
 
                     var maxArray = new byte[sobelMatrix.Rows, sobelMatrix.Cols];
 
@@ -672,7 +681,7 @@ namespace BibNumberDetectionUI
                     //var connectedComponents = FindBlobs(binary1Matrix.Mat, number);
                     CvInvoke.FindContours(binary1Matrix.Mat.Clone(), contoursVector, null, RetrType.List, ChainApproxMethod.ChainApproxNone);
 
-                    var minWidth = 0.04 * gray.Width;
+                    var minWidth = 0.03 * gray.Width;
                     var maxWidth = 0.25 * gray.Width;
 
                     var minHeight = 0.04 * gray.Height;
@@ -683,6 +692,7 @@ namespace BibNumberDetectionUI
                     gray.ConvertTo(detectedDigits, DepthType.Cv32S);
 
                     CvInvoke.DrawContours(gray, contoursVector, -1, new MCvScalar(100, 100, 100));
+                    CvInvoke.DrawContours(color, contoursVector, -1, new MCvScalar(0, 255, 0));
 
                     for (int compIndex = 0; compIndex < contoursVector.Size; compIndex++)
                     {
@@ -698,13 +708,14 @@ namespace BibNumberDetectionUI
                             && compRectangle.Height >= minHeight
                             && compRectangle.Height <= maxHeight
                             && (ratio <= 0.9
-                            && inversedRatio <= 3.6))
+                            && inversedRatio <= 4))
                         {
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
                     }
 
                     gray.Save("gray-" + number + ".bmp");
+                    color.Save("color-" + number + ".bmp");
 
                     detectedDigits.Save("detectedDigits" + number + ".bmp");
 
@@ -731,6 +742,8 @@ namespace BibNumberDetectionUI
                 //{
                 //    skeletonMat =
                 //}
+            }
+                }
             }
         }
 
@@ -807,13 +820,13 @@ namespace BibNumberDetectionUI
                         mean = mean / count;
                     }
 
-                    var threshold = globalMean * 1.3;
+                    var threshold = 0.65 * globalMean;// *1.3;
 
 
-                    if (threshold > globalMax * 0.8)
-                    {
-                        threshold = globalMax * 0.8;
-                    }
+                    //if (threshold > globalMax * 0.8)
+                    //{
+                    //    threshold = globalMax * 0.8;
+                    //}
 
                     for (int row = yAreaIndex * size; row < (yAreaIndex + 1) * size; row++)
                     {
@@ -992,7 +1005,7 @@ namespace BibNumberDetectionUI
                                     var grayClone = grayMat.Clone();
 
                                     //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
-                                    await BinaryImage(grayMat, index);
+                                    await BinaryImage(grayMat, index, null, torsoMat.Clone());
 
                                    // var inverseMat = grayMat.Clone();
                                     Matrix<byte> inverseMatrix = new Matrix<byte>(grayMat.Size);
@@ -1006,7 +1019,7 @@ namespace BibNumberDetectionUI
                                     }
                                         //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
                                     index++;
-                                    await BinaryImage(inverseMatrix.Mat, index);
+                                    await BinaryImage(inverseMatrix.Mat, index, null, torsoMat.Clone());
                                 }
 
 
@@ -1942,6 +1955,47 @@ namespace BibNumberDetectionUI
                             var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
                             resultValues[rowIndex, columnIndex] = Convert.ToByte(newValue);
                         }
+
+                    }
+                }
+
+                //Image<Gray, byte> img2 = new Image<Gray, byte>(resultValues);
+                //img = img2.Mat;
+            }
+
+
+
+
+
+            //ImageViewer.Show(img2, String.Format(
+            //                                      "Img Gray"));
+
+            return resultValues;
+        }
+
+        public static byte[,] ToArray(Mat img)
+        {
+            byte[,] resultValues = new byte[img.Rows, img.Cols];
+
+            for (int i = 0; i < 1; i++)
+            {
+
+                int cols = img.Cols;
+                int rows = img.Rows;
+
+                //result image will be smaller because the pixels on the border have less then 8 neighbours. 
+                //we are going to ignore them
+      
+                for (int rowIndex = 0; rowIndex < rows; rowIndex++)
+                {
+                    for (int columnIndex = 0; columnIndex < cols; columnIndex++)
+                    {
+
+                        var oldValue = img.GetData(rowIndex, columnIndex)[0];
+ 
+                            //var newValue = ComputeManhattanColorDistancesBW(img, new System.Drawing.Point(rowIndex, columnIndex), 10);
+                        resultValues[rowIndex, columnIndex] = Convert.ToByte(oldValue);
+     
 
                     }
                 }
