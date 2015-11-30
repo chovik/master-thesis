@@ -345,13 +345,121 @@ namespace BibNumberDetectionUI
                     //CvInvoke.Threshold(sobelMatrix, sobelMatrix, 170, 255, ThresholdType.Binary);//170-190
                     //CvInvoke.AdaptiveThreshold(sobelMatrix, sobelMatrix, 255, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 2);
 
-                    var edgeSmoothBWAray = EdgePreservingSmoothingBW(sobelMatrix.Mat, 5);
+                    var edgeSmoothBWAray = EdgePreservingSmoothingBW(sobelMatrix.Mat, 12);
+
+                    var maxArray = new byte[sobelMatrix.Rows, sobelMatrix.Cols];
+
+                    for(int row = 0; row < sobelMatrix.Rows; row++)
+                    {
+                        for(int column = 0; column < sobelMatrix.Cols; column++)
+                        {
+                            var val = sobelMatrix[row, column];
+
+                            if(val > 0)
+                            {
+                                if(row > 0
+                                    && row < sobelMatrix.Rows - 1
+                                    && column > 0
+                                    && column < sobelMatrix.Cols - 1)
+                                {
+                                    var neighbours = GetNeighbours(new System.Drawing.Point(column, row));
+
+                                    double maxValue = double.MinValue;
+
+                                    foreach (var p in neighbours)
+                                    {
+                                        var value = sobelMatrix[p.Y, p.X];
+
+                                        if (value > maxValue)
+                                        {
+                                            maxValue = value;
+                                        }
+                                    }
+
+                                    maxArray[row, column] = ToByte(maxValue);
+                                }
+                            }
+                        }
+                    }
+
+                    //var temp = maxArray.Clone() as byte[,];
+
+                    //for (int row = 0; row < sobelMatrix.Rows; row++)
+                    //{
+                    //    for (int column = 0; column < sobelMatrix.Cols; column++)
+                    //    {
+                    //        var val = temp[row, column];
+
+                    //        if (val > 0)
+                    //        {
+                    //            if (row > 0
+                    //                && row < sobelMatrix.Rows - 1
+                    //                && column > 0
+                    //                && column < sobelMatrix.Cols - 1)
+                    //            {
+                    //                var neighbours = GetNeighbours(new System.Drawing.Point(column, row));
+
+                    //                double maxValue = double.MinValue;
+
+                    //                foreach (var p in neighbours)
+                    //                {
+                    //                    var value = temp[p.Y, p.X];
+
+                    //                    if (value > maxValue)
+                    //                    {
+                    //                        maxValue = value;
+                    //                    }
+                    //                }
+
+                    //                maxArray[row, column] = ToByte(maxValue);
+                    //            }
+                    //        }
+                    //    }
+                    //}
+
+                    //temp = maxArray.Clone() as byte[,];
+
+                    //for (int row = 0; row < sobelMatrix.Rows; row++)
+                    //{
+                    //    for (int column = 0; column < sobelMatrix.Cols; column++)
+                    //    {
+                    //        var val = temp[row, column];
+
+                    //        if (val > 0)
+                    //        {
+                    //            if (row > 0
+                    //                && row < sobelMatrix.Rows - 1
+                    //                && column > 0
+                    //                && column < sobelMatrix.Cols - 1)
+                    //            {
+                    //                var neighbours = GetNeighbours(new System.Drawing.Point(column, row));
+
+                    //                double maxValue = double.MinValue;
+
+                    //                foreach (var p in neighbours)
+                    //                {
+                    //                    var value = temp[p.Y, p.X];
+
+                    //                    if (value > maxValue)
+                    //                    {
+                    //                        maxValue = value;
+                    //                    }
+                    //                }
+
+                    //                maxArray[row, column] = ToByte(maxValue);
+                    //            }
+                    //        }
+                    //    }
+                    //}
+
+                    var maxMatrix = new Matrix<byte>(maxArray);
+                    maxMatrix.Save("maxArray" + number + ".bmp");
 
                     var edgeMatrix = new Matrix<byte>(edgeSmoothBWAray);
 
                     edgeMatrix.Save("laplacian-edgeMatrix" + number + ".bmp");
 
-                    var thresholdEdge = CustomThreshold(edgeMatrix, 13);
+                    var thresholdEdge = CustomThreshold(maxMatrix, 13);
 
 
 
@@ -570,7 +678,7 @@ namespace BibNumberDetectionUI
                             && compRectangle.Height >= minHeight
                             && compRectangle.Height <= maxHeight
                             && (ratio <= 0.9
-                            && inversedRatio <= 1.5))
+                            && inversedRatio <= 1.7))
                         {
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
@@ -677,7 +785,13 @@ namespace BibNumberDetectionUI
                         mean = mean / count;
                     }
 
-                    var threshold = globalMean;
+                    var threshold = globalMean * 1.3;
+
+
+                    if (threshold > globalMax * 0.8)
+                    {
+                        threshold = globalMax * 0.8;
+                    }
 
                     for (int row = yAreaIndex * size; row < (yAreaIndex + 1) * size; row++)
                     {
@@ -716,7 +830,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7623.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"IMG_7621.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
@@ -856,7 +970,7 @@ namespace BibNumberDetectionUI
                                 }
 
 
-                                //using (Mat hsvMat = new Mat())
+                                //using (Mat hsvMat = new Mat())  
                                 //{
 
 
