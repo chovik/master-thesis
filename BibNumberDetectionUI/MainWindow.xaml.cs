@@ -664,6 +664,8 @@ namespace BibNumberDetectionUI
 
                     gray.ConvertTo(detectedDigits, DepthType.Cv32S);
 
+                    CvInvoke.DrawContours(gray, contoursVector, -1, new MCvScalar(100, 100, 100));
+
                     for (int compIndex = 0; compIndex < contoursVector.Size; compIndex++)
                     {
                         var component = contoursVector[compIndex];
@@ -678,11 +680,13 @@ namespace BibNumberDetectionUI
                             && compRectangle.Height >= minHeight
                             && compRectangle.Height <= maxHeight
                             && (ratio <= 0.9
-                            && inversedRatio <= 2))
+                            && inversedRatio <= 2.6))
                         {
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
                     }
+
+                    gray.Save("gray-" + number + ".bmp");
 
                     detectedDigits.Save("detectedDigits" + number + ".bmp");
 
@@ -830,7 +834,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7621.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
