@@ -280,14 +280,14 @@ namespace BibNumberDetectionUI
         {
             var image = gray;
             image.Save("image-" + number + ".bmp");
-
+    
             using(var gausssian1 = new Image<Gray, byte>(image.Size))
             {
                 using (var gausssian2 = new Image<Gray, byte>(image.Size))
                 {
-                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(33, 33), 0);
+                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(41, 41), 0);
                     CvInvoke.GaussianBlur(gray, gausssian2, new System.Drawing.Size(1, 1), 0);
-                    var result = gausssian1 - gausssian2;
+                    var result = gausssian1 - gray.ToImage<Gray, byte>();
                     result.Save("gauss-dog-" + number + ".bmp");
                
             
@@ -486,7 +486,7 @@ namespace BibNumberDetectionUI
 
                     edgeMatrix.Save("laplacian-edgeMatrix" + number + ".bmp");
 
-                    var thresholdEdge = CustomThreshold(maxMatrix, 13);
+                    var thresholdEdge = CustomThreshold(sobelMatrix, 13);
 
 
 
@@ -865,7 +865,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_6765.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"DSC05768.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
