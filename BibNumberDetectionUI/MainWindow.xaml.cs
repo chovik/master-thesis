@@ -279,6 +279,20 @@ namespace BibNumberDetectionUI
         async Task BinaryImage(Mat gray, int number, Mat canny = null)
         {
             var image = gray;
+            image.Save("image-" + number + ".bmp");
+
+            using(var gausssian1 = new Image<Gray, byte>(image.Size))
+            {
+                using (var gausssian2 = new Image<Gray, byte>(image.Size))
+                {
+                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(13, 13), 0);
+                    CvInvoke.GaussianBlur(gray, gausssian2, new System.Drawing.Size(0, 0), 0);
+                    var result = gausssian1 - gausssian2;
+                    result.Save("gauss-dog-" + number + ".bmp");
+                }
+            }
+            
+
             var imageData = EdgePreservingSmoothingBW(gray, 5);
 
             using (Matrix<byte> edgeSmoothingImage = new Matrix<byte>(imageData))
@@ -316,8 +330,12 @@ namespace BibNumberDetectionUI
                     var sobelX = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
                     var sobelY = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
 
-                    CvInvoke.Sobel(changedContrastImg, sobelX, DepthType.Cv8U, 1, 0);
-                    CvInvoke.Sobel(changedContrastImg, sobelY, DepthType.Cv8U, 0, 1);
+                    CvInvoke.Sobel(gray, sobelX, DepthType.Cv8U, 1, 1);
+
+                    sobelX.Save("sobelX-" + number + ".bmp");
+
+                    CvInvoke.Sobel(gray, sobelX, DepthType.Cv8U, 1, 0);
+                    CvInvoke.Sobel(gray, sobelY, DepthType.Cv8U, 0, 1);
 
 
 
@@ -680,7 +698,7 @@ namespace BibNumberDetectionUI
                             && compRectangle.Height >= minHeight
                             && compRectangle.Height <= maxHeight
                             && (ratio <= 0.9
-                            && inversedRatio <= 2.6))
+                            && inversedRatio <= 3.6))
                         {
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
@@ -834,7 +852,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"IMG_6765.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
@@ -853,6 +871,7 @@ namespace BibNumberDetectionUI
 
                         await Dispatcher.BeginInvoke(updateListAction,
                             null);
+
 
                         //var rows = image.Rows;
                         //var cols = image.Cols;
@@ -970,7 +989,24 @@ namespace BibNumberDetectionUI
                                 {
                                     CvInvoke.CvtColor(torsoMat, grayMat, ColorConversion.Bgr2Gray);
 
+                                    var grayClone = grayMat.Clone();
+
+                                    //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
                                     await BinaryImage(grayMat, index);
+
+                                   // var inverseMat = grayMat.Clone();
+                                    Matrix<byte> inverseMatrix = new Matrix<byte>(grayMat.Size);
+
+                                    for (int row = 0; row < grayMat.Rows; row++ )
+                                    {
+                                        for(var column = 0; column < grayMat.Cols; column++)
+                                        {
+                                            inverseMatrix[row, column] = ToByte(255 - grayClone.GetData(row, column)[0]);
+                                        }
+                                    }
+                                        //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
+                                    index++;
+                                    await BinaryImage(inverseMatrix.Mat, index);
                                 }
 
 
