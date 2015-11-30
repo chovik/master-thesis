@@ -276,7 +276,7 @@ namespace BibNumberDetectionUI
             return matrix;
         }
 
-        async Task BinaryImage(Mat gray, int number, Mat canny = null)
+        async Task BinaryImage(Mat gray, int number, Mat canny = null, Mat color = null)
         {
             var image = gray;
             var imageData = EdgePreservingSmoothingBW(gray, 5);
@@ -553,17 +553,66 @@ namespace BibNumberDetectionUI
                     var maxHeight = 0.25 * gray.Height;
 
                     Mat detectedDigits = new Mat();
+                    //(gray.Size, DepthType.Cv32S, 3);
+
+                    //color.ConvertTo(colorComponents, DepthType.Cv32S);
+
+                    
 
                     gray.ConvertTo(detectedDigits, DepthType.Cv32S);
+     
 
                     for (int compIndex = 0; compIndex < contoursVector.Size; compIndex++)
                     {
                         var component = contoursVector[compIndex];
+
+                        var subSampleData = await SubSampling(color, component);
+                        
+                        byte[,,] colorComponents = new byte[color.Rows, color.Cols, 3];
+                        for(int row = 0; row < subSampleData.GetLength(0); row++)
+                        {
+                            for(int column = 0; column < subSampleData.GetLength(1); column++)
+                            {
+                                var r = subSampleData[row, column, 2];
+                                var g = subSampleData[row, column, 1];
+                                var b = subSampleData[row, column, 0];
+
+                                if(r > 0)
+                                {
+                                    colorComponents[row, column, 2] = color.GetData(row, column)[2];
+                                    colorComponents[row, column, 1] = color.GetData(row, column)[1];
+                                    colorComponents[row, column, 0] = color.GetData(row, column)[0];
+                                }
+                            }
+                        }
+
                         var compRectangle = CvInvoke.BoundingRectangle(component);
 
                         var ratio = (double)compRectangle.Width / compRectangle.Height;
                         var inversedRatio = (double) 1 / ratio;
-                        
+
+                        using (var colorImage = new Image<Bgr, byte>(subSampleData))
+                        {
+                            colorImage.Save("colorComponents-" + number + "-" + compIndex + ".bmp");
+                        }
+
+                        using (var colorImage = new Image<Bgr, byte>(colorComponents))
+                        {
+                            colorImage.Save("colorComponents-def-" + number + "-" + compIndex + ".bmp");
+                            var data = EdgePreservingSmoothing(colorImage.Mat, component, 12);
+
+                            using (var colorImage2 = new Image<Bgr, byte>(data))
+                            {
+                                
+                                colorImage2.Save("colorComponents-edge-smooth-" + number + "-" + compIndex + ".bmp");
+
+                                var subSampleData2 = await SubSampling(colorImage2.Mat, component);
+                                using (var colorImage3 = new Image<Bgr, byte>(subSampleData2))
+                                {
+                                    colorImage3.Save("colorComponents-edge-smooth-sub" + number + "-" + compIndex + ".bmp");
+                                }
+                            }
+                        }
 
                         if(compRectangle.Width >= minWidth
                             && compRectangle.Width <= maxWidth
@@ -572,6 +621,7 @@ namespace BibNumberDetectionUI
                             && (ratio <= 0.9
                             && inversedRatio <= 1.5))
                         {
+                            
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
                     }
@@ -852,7 +902,7 @@ namespace BibNumberDetectionUI
                                 {
                                     CvInvoke.CvtColor(torsoMat, grayMat, ColorConversion.Bgr2Gray);
 
-                                    await BinaryImage(grayMat, index);
+                                    await BinaryImage(grayMat, index, null, torsoMat);
                                 }
 
 
@@ -1164,6 +1214,326 @@ namespace BibNumberDetectionUI
 
         }
 
+        public async Task<byte[, ,]> SubSampling(Mat img, VectorOfPoint points)
+        {
+            //ProcessingImageWorkflow.Add(ToBitmapSource(img));
+            //img = new Mat("diplomka.png", LoadImageType.Color);
+            var colorChannels = img.Split();
+
+            var rSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var rSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+            var gSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var gSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+            var bSobelX = new Mat(img.Size, DepthType.Cv8U, 1);
+            var bSobelY = new Mat(img.Size, DepthType.Cv8U, 1);
+
+            CvInvoke.Sobel(colorChannels[2], rSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[2], rSobelY, DepthType.Cv8U, 0, 1);
+
+            CvInvoke.Sobel(colorChannels[1], gSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[1], gSobelY, DepthType.Cv8U, 0, 1);
+
+            CvInvoke.Sobel(colorChannels[0], bSobelX, DepthType.Cv8U, 1, 0);
+            CvInvoke.Sobel(colorChannels[0], bSobelY, DepthType.Cv8U, 0, 1);
+
+
+            int cols = img.Cols;
+            int rows = img.Rows;
+
+            var edgeValues = new double[rows, cols];
+            var edgeValuesTest = new byte[rows, cols, 1];
+
+            for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+            {
+                var point = points[pointIndex];
+
+                var rX = rSobelX.GetData(point.Y, point.X)[0];
+                var rY = rSobelY.GetData(point.Y, point.X)[0];
+                var gX = gSobelX.GetData(point.Y, point.X)[0];
+                var gY = gSobelY.GetData(point.Y, point.X)[0];
+                var bX = bSobelX.GetData(point.Y, point.X)[0];
+                var bY = bSobelY.GetData(point.Y, point.X)[0];
+
+                var edgeRed = Math.Sqrt(rX * rX + rY * rY);
+                var edgeGreen = Math.Sqrt(gX * gX + gY * gY);
+                var edgeBlue = Math.Sqrt(bX * bX + bY * bY);
+
+                var edgeValue = (new double[] { edgeRed, edgeGreen, edgeBlue }).Max();
+                edgeValuesTest[point.Y, point.X, 0] = ToByte(edgeValue);
+                edgeValues[point.Y, point.X] = edgeValue;
+            }
+
+            Image<Gray, byte> edGE = new Image<Gray, byte>(edgeValuesTest);
+
+            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    edGE.Mat);
+
+            var samples = new byte[rows, cols, 3];
+
+            var samplesList = new List<RGBSample>();
+            var samplesHistogram = new RGBSample[256, 256, 256];
+
+            for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+            {
+                var point = points[pointIndex];
+
+                var isLocalMinima = false;
+
+                if (point.Y > 0
+                    && point.Y < rows - 1
+                    && point.X > 0
+                    && point.X < cols - 1)
+                {
+                    isLocalMinima = IsLocalMinima(new System.Drawing.Point(point.Y, point.X), edgeValues);
+                }
+
+                if (!isLocalMinima)
+                {
+                    samples[point.Y, point.X, 2] = 255;
+                    samples[point.Y, point.X, 1] = 255;
+                    samples[point.Y, point.X, 0] = 255;
+                }
+                else
+                {
+                    var bytes = img.GetData(point.Y, point.X);
+
+                    var r = bytes[2];
+                    var g = bytes[1];
+                    var b = bytes[0];
+
+                    samples[point.Y, point.X, 2] = r;
+                    samples[point.Y, point.X, 1] = g;
+                    samples[point.Y, point.X, 0] = b;
+
+                    if (samplesHistogram[r, g, b] == null)
+                    {
+                        var sample = new RGBSample() { Red = r, Green = g, Blue = b };
+                        samplesHistogram[r, g, b] = sample;
+                        samplesList.Add(sample);
+                    }
+
+                    samplesHistogram[r, g, b].Points.Add(new Point(point.Y, point.X));
+                }
+            }
+
+
+            Image<Bgr, byte> img4 = new Image<Bgr, byte>(samples);
+            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    img4.Mat);
+
+            var visitedSamples = new List<byte[]>();
+
+            var h = 32;
+
+            var meanSamples = new List<RGBSample>();
+
+            foreach (var sample in samplesList)
+            {
+                //visitedSamples.Add(sample);
+
+                if (!sample.IsVisited)
+                {
+                    sample.IsVisited = true;
+
+                    double meanRed = 0;
+                    double meanGreen = 0;
+                    double meanBlue = 0;
+
+                    double totalCount = 0;
+
+                    for (int r = sample.Red - h; r <= sample.Red + h; r++)
+                    {
+                        for (int g = sample.Green - h; g <= sample.Green + h; g++)
+                        {
+                            for (int b = sample.Blue - h; b <= sample.Blue + h; b++)
+                            {
+                                if (r >= 0 && r < 255
+                                    && b >= 0 && b < 255
+                                    && g >= 0 && g < 255)
+                                {
+                                    var rgbSample = samplesHistogram[r, g, b];
+                                    if (rgbSample != null)
+                                    {
+                                        rgbSample.IsVisited = true;
+                                        var count = rgbSample.Points.Count;
+                                        meanRed += r * count;
+                                        meanGreen += g * count;
+                                        meanBlue += b * count;
+
+                                        totalCount += count;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    var meanSample = new RGBSample() { Red = (byte)Math.Round(meanRed / totalCount), Green = (byte)Math.Round(meanGreen / totalCount), Blue = (byte)Math.Round(meanBlue / totalCount) };
+                    meanSamples.Add(meanSample);
+                }
+
+            }
+
+            var rgbHistogram = new RGBSample[256, 256, 256];
+            var rMat = colorChannels[2];
+            var gMat = colorChannels[1];
+            var bMat = colorChannels[0];
+
+            for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+            {
+                var point = points[pointIndex];
+                var r = rMat.GetData(point.Y, point.X)[0];
+                var g = gMat.GetData(point.Y, point.X)[0];
+                var b = bMat.GetData(point.Y, point.X)[0];
+
+                if (rgbHistogram[r, g, b] == null)
+                {
+                    var sample = new RGBSample() { Red = r, Green = g, Blue = b };
+                    rgbHistogram[r, g, b] = sample;
+                }
+
+                rgbHistogram[r, g, b].Points.Add(new Point(point.Y, point.X));
+            }
+
+            //CvInvoke.MeanShift(img4, )
+
+            foreach (var mean in meanSamples)
+            {
+                Debug.WriteLine("Mean R: " + mean.Red + " G: " + mean.Green + " B: " + mean.Blue);
+            }
+
+            var finalColors = new List<RGBSample>();
+
+            foreach (var meanSample in meanSamples)
+            {
+                meanSample.IsVisited = true;
+
+                double meanRed = 0;
+                double meanGreen = 0;
+                double meanBlue = 0;
+
+                double totalCount = 0;
+                double dm = double.MaxValue;
+                var currentSample = meanSample;
+
+                while (dm > 3)
+                {
+                    for (int r = currentSample.Red - h; r <= currentSample.Red + h; r++)
+                    {
+                        for (int g = currentSample.Green - h; g <= currentSample.Green + h; g++)
+                        {
+                            for (int b = currentSample.Blue - h; b <= currentSample.Blue + h; b++)
+                            {
+                                if (r >= 0 && r < 256
+                                    && b >= 0 && b < 256
+                                    && g >= 0 && g < 256)
+                                {
+                                    var rgbSample = rgbHistogram[r, g, b];
+                                    if (rgbSample != null)
+                                    {
+                                        rgbSample.IsVisited = true;
+                                        var count = rgbSample.Points.Count;
+
+
+                                        meanRed += r * count;
+                                        if (meanRed < 0)
+                                        {
+                                            Debug.Assert(true);
+                                        }
+
+                                        meanGreen += g * count;
+                                        meanBlue += b * count;
+
+                                        totalCount += count;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    meanRed = meanRed / totalCount;
+                    meanGreen = meanGreen / totalCount;
+                    meanBlue = meanBlue / totalCount;
+
+                    dm = Math.Abs(currentSample.Red - meanRed)
+                        + Math.Abs(currentSample.Green - meanGreen)
+                        + Math.Abs(currentSample.Blue - meanBlue);
+
+                    currentSample = new RGBSample() { Red = (byte)Math.Round(meanRed), Green = (byte)Math.Round(meanGreen), Blue = (byte)Math.Round(meanBlue) };
+
+                    totalCount = 0;
+                    meanRed = 0;
+                    meanGreen = 0;
+                    meanBlue = 0;
+                }
+
+                finalColors.Add(currentSample);
+
+                Debug.WriteLine("Final R: " + currentSample.Red + " G: " + currentSample.Green + " B: " + currentSample.Blue);
+            }
+
+
+            byte[, ,] finalImageData = new byte[rows, cols, 3];
+
+            for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+            {
+                var point = points[pointIndex];
+
+                var rOld = rMat.GetData(point.Y, point.X)[0];
+                var gOld = gMat.GetData(point.Y, point.X)[0];
+                var bOld = bMat.GetData(point.Y, point.X)[0];
+
+                double min = double.MaxValue;
+                int minIndex = -1;
+                int i = 0;
+
+                foreach (var final in finalColors)
+                {
+                    var diff = (Math.Abs(final.Red - rOld)
+                        + Math.Abs(final.Green - gOld)
+                        + Math.Abs(final.Blue - bOld));
+
+                    if (diff < min)
+                    {
+                        minIndex = i;
+                        min = diff;
+                    }
+
+                    i++;
+                }
+
+                if (minIndex >= 0)
+                {
+                    finalImageData[point.Y, point.X, 0] = finalColors[minIndex].Blue;
+                    finalImageData[point.Y, point.X, 1] = finalColors[minIndex].Green;
+                    finalImageData[point.Y, point.X, 2] = finalColors[minIndex].Red;
+                }
+            }
+
+            Image<Bgr, byte> img2 = new Image<Bgr, byte>(finalImageData);
+
+            await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    img2.Mat);
+
+
+            //byte[, ,] postProcessedData = null;
+
+            //using(var edgeMat = new Mat())
+            //{
+            //CvInvoke.Canny(img2.Mat, edgeMat, 80, 240, 3, false);
+
+            //await Dispatcher.BeginInvoke(_addImageToTheList,
+            //                        edgeMat);
+
+            //postProcessedData = PostProcessing(img2.Mat);
+
+            //Image<Bgr, byte> img3 = new Image<Bgr, byte>(postProcessedData);
+
+            //await Dispatcher.BeginInvoke(_addImageToTheList,
+                                    //img3.Mat);
+            //}
+
+            return finalImageData;
+        }
 
         public async Task<byte[, ,]> SubSampling(Mat img)
         {
@@ -1540,6 +1910,39 @@ namespace BibNumberDetectionUI
             return edgeValues;
         }
 
+        public static byte[, ,] PostProcessing(Mat img, VectorOfPoint points)
+        {
+            var edgeData = ComputeEdgeMagnitudes(img);
+            int rows = img.Rows;
+            int cols = img.Cols;
+            var colors = img.NumberOfChannels;
+            byte[, ,] newData = new byte[rows, cols, colors];
+
+            for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+            {
+                var point = points[pointIndex];
+
+                if (point.Y == 0
+                        || point.Y == rows - 1
+                        || point.X == 0
+                        || point.X == cols - 1)
+                {
+                    newData[point.Y, point.X, 2] = img.GetData(point.Y, point.X)[2];
+                    newData[point.Y, point.X, 1] = img.GetData(point.Y, point.X)[1];
+                    newData[point.Y, point.X, 0] = img.GetData(point.Y, point.X)[0];
+                }
+                else
+                {
+                    Rgb newValue = PostProcessPixel(new System.Drawing.Point(point.X, point.Y), img, edgeData);
+                    newData[point.Y, point.X, 2] = ToByte(newValue.Red);
+                    newData[point.Y, point.X, 1] = ToByte(newValue.Green);
+                    newData[point.Y, point.X, 0] = ToByte(newValue.Blue);
+                }
+            }
+
+            return newData;
+        }
+
         public static byte[, ,] PostProcessing(Mat img)
         {
             var edgeData = ComputeEdgeMagnitudes(img);
@@ -1806,7 +2209,60 @@ namespace BibNumberDetectionUI
             return resultValues;
         }
 
+        public static byte[, ,] EdgePreservingSmoothing(Mat img, VectorOfPoint points, int numberOfCycles = 5)
+        {
+            byte[, ,] resultValues = new byte[img.Rows, img.Cols, 3];
 
+            for (int i = 0; i < 1; i++)
+            {
+                var colorChannels = img.Split();
+
+                var rChannel = colorChannels[2];
+                var gChannel = colorChannels[1];
+                var bChannel = colorChannels[0];
+
+                int cols = img.Cols;
+                int rows = img.Rows;
+
+                //result image will be smaller because the pixels on the border have less then 8 neighbours. 
+                //we are going to ignore them
+                Mat result = new Mat(img.Rows - 2, img.Cols - 2, img.Depth, 1);
+
+
+                for (int pointIndex = 0; pointIndex < points.Size; pointIndex++)
+                {
+                    var point = points[pointIndex];
+
+                        if (point.Y == 0
+                            || point.Y == rows - 1
+                            || point.X == 0
+                            || point.X == cols - 1)
+                        {
+                            //pixel is on the border
+                            resultValues[point.Y, point.X, 0] = 0;
+                            resultValues[point.Y, point.X, 1] = 0;
+                            resultValues[point.Y, point.X, 2] = 0;
+                            continue;
+                        }
+
+                        var newValue = ComputeManhattanColorDistances(rChannel, gChannel, bChannel, new System.Drawing.Point(point.Y, point.X), 10);
+                        resultValues[point.Y, point.X, 0] = Convert.ToByte(newValue[2]);
+                        resultValues[point.Y, point.X, 1] = Convert.ToByte(newValue[1]);
+                        resultValues[point.Y, point.X, 2] = Convert.ToByte(newValue[0]);
+                    }
+                Image<Bgr, byte> img2 = new Image<Bgr, byte>(resultValues);
+                img = img2.Mat;
+            }
+
+
+
+
+
+            //ImageViewer.Show(img2, String.Format(
+            //                                      "Img Gray"));
+
+            return resultValues;
+        }
 
         public static byte[, ,] EdgePreservingSmoothing(Mat img, int numberOfCycles = 5)
         {
