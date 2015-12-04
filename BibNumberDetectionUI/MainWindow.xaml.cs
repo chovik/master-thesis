@@ -772,8 +772,67 @@ namespace BibNumberDetectionUI
                                                 {
                                                     using (var eigenVectors = new Mat())
                                                     {
-                                                        CvInvoke.CalcCovarMatrix(characterMatrix, covar, meanMat, CovarMethod.Rows | CovarMethod.Normal);
-                                                        CvInvoke.Eigen(covar, eigenValues, eigenVectors);
+
+                                                        double meanX = 0;
+                                                        double meanY = 0;
+                                                        int count = 0;
+                                                        for (int row = 0; row < characterMatrix.Rows; row++)
+                                                        {
+                                                            for (int column = 0; column < characterMatrix.Cols; column++)
+                                                            {
+                                                                var val = characterMatrix.GetData(row, column)[0];
+
+                                                                if(val > 0)
+                                                                {
+                                                                    meanX += column;
+                                                                    meanY += row;
+                                                                    count++;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if(count > 0)
+                                                        {
+                                                            meanX = (double) meanX / count;
+                                                            meanY = (double) meanY / count;
+                                                        }
+
+                                                        var covXYSum = 0.0;
+                                                        var covXSum = 0.0;
+                                                        var covYSum = 0.0;
+
+                                                        for (int row = 0; row < characterMatrix.Rows; row++)
+                                                        {
+                                                            for (int column = 0; column < characterMatrix.Cols; column++)
+                                                            {
+                                                                var val = characterMatrix.GetData(row, column)[0];
+
+                                                                if (val > 0)
+                                                                {
+                                                                    var diffX = column - meanX;
+                                                                    var diffY = row - meanY;
+
+                                                                    covXYSum += (diffX * diffY);
+                                                                    covXSum += (diffX * diffX);
+                                                                    covYSum += (diffY * diffY);
+                                                                }
+                                                            }
+                                                        }
+
+                                                        var covarianceXY = covXYSum / count;
+                                                        var covarianceX = covXSum / count;
+                                                        var covarianceY = covYSum / count;
+
+                                                        var covarianceMatrix = new Matrix<double>(2, 2, 1);
+
+                                                        covarianceMatrix[0, 0] = covarianceX;
+                                                        covarianceMatrix[0, 1] = covarianceXY;
+                                                        covarianceMatrix[1, 0] = covarianceXY;
+                                                        covarianceMatrix[1, 1] = covarianceY;
+
+
+                                                           // CvInvoke.CalcCovarMatrix(characterMatrix, covar, meanMat, CovarMethod.Rows | CovarMethod.Normal);
+                                                            CvInvoke.Eigen(covarianceMatrix.Mat, eigenValues, eigenVectors);
 
                                                         //if(eigenValues.Data != null)
                                                         //{
@@ -793,7 +852,30 @@ namespace BibNumberDetectionUI
 
                                                         if(maxIndex >= 0)
                                                         {
+                                                            var eigenVectorX = eigenVectors.GetData(maxIndex, 0)[0];
+                                                            var eigenVectorY = eigenVectors.GetData(maxIndex, 1)[0];
+
+                                                            var angle = Math.Atan2(eigenVectorY, eigenVectorX);
+                                                            //Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
+                                                            if (angle < 0)
+                                                            {
+                                                                angle += 6.28318530718;
+                                                            }
+                                                            //Conver to degrees instead of radians
+                                                            angle = 180 * angle / 3.14159265359;
+
+                                                            var rotateAngle = Math.Abs(90 - angle);
+                                                            CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(compRectangle.X + Math.Floor(compRectangle.Width / 2f)), (float)(compRectangle.Y + Math.Floor(compRectangle.Height / 2f))), -rotateAngle, 1, covar);
+                                                            Debug.WriteLine("ANGLE - " + angle + " - " + compIndex);
+                                                            using(var rotatedMatrix = new Mat())
+                                                            {
+                                                                CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
+                                                                rotatedMatrix.Save("rotated-" + number + "-" + compIndex + "-" + ix + ".bmp");
+                                                            }
                                                             
+                                                            
+
+                                                            CvInvoke.PutText(detectedDigits, angle.ToString("F0"), new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.4, new Bgr(0, 255, 0).MCvScalar);
                                                         }
                                                         //}
 
@@ -804,7 +886,7 @@ namespace BibNumberDetectionUI
                                         }
                                         
                                         Debug.WriteLine("Detected Number " + number + " | " + ix + " : " + c.Text + " - " + c.Cost);
-                                        CvInvoke.PutText(detectedDigits, c.Text, new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.7, new Bgr(0, 255, 0).MCvScalar);
+                                        //CvInvoke.PutText(detectedDigits, c.Text, new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.7, new Bgr(0, 255, 0).MCvScalar);
                                         ix++;
                                     }
                                    
