@@ -1,6 +1,7 @@
 ﻿using Emgu.CV;
 using Emgu.CV.Cuda;
 using Emgu.CV.CvEnum;
+using Emgu.CV.OCR;
 using Emgu.CV.Structure;
 using Emgu.CV.UI;
 using Emgu.CV.Util;
@@ -717,6 +718,98 @@ namespace BibNumberDetectionUI
                             && (ratio <= 0.9
                             && inversedRatio <= 4))
                         {
+                            using (Emgu.CV.OCR.Tesseract t = new Emgu.CV.OCR.Tesseract("D:/Emgu/emgucv-windows-universal 3.0.0.2157/bin/tessdata/", "eng", OcrEngineMode.TesseractOnly, "1234567890"))
+                            {
+                                var outerRectangle = compRectangle;
+                                int margin = 2;
+                                outerRectangle.X = outerRectangle.X - margin;
+
+                                if(outerRectangle.X < 0)
+                                {
+                                    outerRectangle.X = 0;
+                                }
+
+                                outerRectangle.Y = outerRectangle.Y - margin;
+
+                                if (outerRectangle.Y < 0)
+                                {
+                                    outerRectangle.Y = 0;
+                                }
+
+                                outerRectangle.Width += (2 * margin);
+                                outerRectangle.Height += (2 * margin);
+
+                                var diffWidth =  gray.Width - outerRectangle.Right;
+
+                                if (diffWidth < 0)
+                                {
+                                    outerRectangle.Width += diffWidth;
+                                }
+
+                                var diffHeight = gray.Height - outerRectangle.Bottom;
+
+                                if (diffHeight < 0)
+                                {
+                                    outerRectangle.Height += diffHeight;
+                                }
+
+                                var characterMatrix = binary1Matrix.GetSubRect(outerRectangle).Mat;
+                                t.Recognize(characterMatrix);//gray.ToImage<Bgr, byte>()
+                                var characters = t.GetCharacters();
+
+                                
+
+                                if(characters.Length > 0)
+                                {
+                                    int ix = 0;
+                                    foreach(var c in characters)
+                                    {
+                                        using(var covar = new Mat())
+                                        {
+                                            using(var meanMat = new Mat())
+                                            {
+                                                using(var eigenValues = new Mat())
+                                                {
+                                                    using (var eigenVectors = new Mat())
+                                                    {
+                                                        CvInvoke.CalcCovarMatrix(characterMatrix, covar, meanMat, CovarMethod.Rows | CovarMethod.Normal);
+                                                        CvInvoke.Eigen(covar, eigenValues, eigenVectors);
+
+                                                        //if(eigenValues.Data != null)
+                                                        //{
+                                                            var max = int.MinValue;
+                                                            int maxIndex = -1;
+                                                            for(int eigenIndex = 0; eigenIndex < eigenValues.Rows; eigenIndex++)
+                                                            {
+                                                                var val = eigenValues.GetData(eigenIndex, 0)[0];
+
+                                                                if(val > max)
+                                                                {
+                                                                    max = val;
+                                                                    maxIndex = eigenIndex;
+                                                                }
+                                                                //var value = eigenValues.To[eigenIndex];
+                                                            }
+
+                                                        if(maxIndex >= 0)
+                                                        {
+                                                            
+                                                        }
+                                                        //}
+
+                                                    }
+                                                }
+                                            }
+                                            
+                                        }
+                                        
+                                        Debug.WriteLine("Detected Number " + number + " | " + ix + " : " + c.Text + " - " + c.Cost);
+                                        CvInvoke.PutText(detectedDigits, c.Text, new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.7, new Bgr(0, 255, 0).MCvScalar);
+                                        ix++;
+                                    }
+                                   
+                                }
+                            }
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
                     }
@@ -872,13 +965,15 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_7621.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
                         //await BinaryImage(image);
 
                         //return;
+                        
+                        
                         Action updateListAction = () =>
                             {
                                 ProcessingImageWorkflow.Clear();
