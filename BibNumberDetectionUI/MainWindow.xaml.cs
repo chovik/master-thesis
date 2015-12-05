@@ -754,143 +754,149 @@ namespace BibNumberDetectionUI
                                 }
 
                                 var characterMatrix = binary1Matrix.GetSubRect(outerRectangle).Mat;
-                                t.Recognize(characterMatrix);//gray.ToImage<Bgr, byte>()
-                                var characters = t.GetCharacters();
 
-                                
-
-                                if(characters.Length > 0)
+                                using (var covar = new Mat())
                                 {
-                                    int ix = 0;
-                                    foreach(var c in characters)
+                                    using (var meanMat = new Mat())
                                     {
-                                        using(var covar = new Mat())
+                                        using (var eigenValues = new Mat())
                                         {
-                                            using(var meanMat = new Mat())
+                                            using (var eigenVectors = new Mat())
                                             {
-                                                using(var eigenValues = new Mat())
+
+                                                double meanX = 0;
+                                                double meanY = 0;
+                                                int count = 0;
+                                                for (int row = 0; row < characterMatrix.Rows; row++)
                                                 {
-                                                    using (var eigenVectors = new Mat())
+                                                    for (int column = 0; column < characterMatrix.Cols; column++)
                                                     {
+                                                        var val = characterMatrix.GetData(row, column)[0];
 
-                                                        double meanX = 0;
-                                                        double meanY = 0;
-                                                        int count = 0;
-                                                        for (int row = 0; row < characterMatrix.Rows; row++)
+                                                        if (val > 0)
                                                         {
-                                                            for (int column = 0; column < characterMatrix.Cols; column++)
-                                                            {
-                                                                var val = characterMatrix.GetData(row, column)[0];
-
-                                                                if(val > 0)
-                                                                {
-                                                                    meanX += column;
-                                                                    meanY += row;
-                                                                    count++;
-                                                                }
-                                                            }
+                                                            meanX += column;
+                                                            meanY += row;
+                                                            count++;
                                                         }
-
-                                                        if(count > 0)
-                                                        {
-                                                            meanX = (double) meanX / count;
-                                                            meanY = (double) meanY / count;
-                                                        }
-
-                                                        var covXYSum = 0.0;
-                                                        var covXSum = 0.0;
-                                                        var covYSum = 0.0;
-
-                                                        for (int row = 0; row < characterMatrix.Rows; row++)
-                                                        {
-                                                            for (int column = 0; column < characterMatrix.Cols; column++)
-                                                            {
-                                                                var val = characterMatrix.GetData(row, column)[0];
-
-                                                                if (val > 0)
-                                                                {
-                                                                    var diffX = column - meanX;
-                                                                    var diffY = row - meanY;
-
-                                                                    covXYSum += (diffX * diffY);
-                                                                    covXSum += (diffX * diffX);
-                                                                    covYSum += (diffY * diffY);
-                                                                }
-                                                            }
-                                                        }
-
-                                                        var covarianceXY = covXYSum / count;
-                                                        var covarianceX = covXSum / count;
-                                                        var covarianceY = covYSum / count;
-
-                                                        var covarianceMatrix = new Matrix<double>(2, 2, 1);
-
-                                                        covarianceMatrix[0, 0] = covarianceX;
-                                                        covarianceMatrix[0, 1] = covarianceXY;
-                                                        covarianceMatrix[1, 0] = covarianceXY;
-                                                        covarianceMatrix[1, 1] = covarianceY;
-
-
-                                                           // CvInvoke.CalcCovarMatrix(characterMatrix, covar, meanMat, CovarMethod.Rows | CovarMethod.Normal);
-                                                            CvInvoke.Eigen(covarianceMatrix.Mat, eigenValues, eigenVectors);
-
-                                                        //if(eigenValues.Data != null)
-                                                        //{
-                                                            var max = int.MinValue;
-                                                            int maxIndex = -1;
-                                                            for(int eigenIndex = 0; eigenIndex < eigenValues.Rows; eigenIndex++)
-                                                            {
-                                                                var val = eigenValues.GetData(eigenIndex, 0)[0];
-
-                                                                if(val > max)
-                                                                {
-                                                                    max = val;
-                                                                    maxIndex = eigenIndex;
-                                                                }
-                                                                //var value = eigenValues.To[eigenIndex];
-                                                            }
-
-                                                        if(maxIndex >= 0)
-                                                        {
-                                                            var eigenVectorX = eigenVectors.GetData(maxIndex, 0)[0];
-                                                            var eigenVectorY = eigenVectors.GetData(maxIndex, 1)[0];
-
-                                                            var angle = Math.Atan2(eigenVectorY, eigenVectorX);
-                                                            //Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
-                                                            if (angle < 0)
-                                                            {
-                                                                angle += 6.28318530718;
-                                                            }
-                                                            //Conver to degrees instead of radians
-                                                            angle = 180 * angle / 3.14159265359;
-
-                                                            var rotateAngle = Math.Abs(90 - angle);
-                                                            CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(compRectangle.X + Math.Floor(compRectangle.Width / 2f)), (float)(compRectangle.Y + Math.Floor(compRectangle.Height / 2f))), -rotateAngle, 1, covar);
-                                                            Debug.WriteLine("ANGLE - " + angle + " - " + compIndex);
-                                                            using(var rotatedMatrix = new Mat())
-                                                            {
-                                                                CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
-                                                                rotatedMatrix.Save("rotated-" + number + "-" + compIndex + "-" + ix + ".bmp");
-                                                            }
-                                                            
-                                                            
-
-                                                            CvInvoke.PutText(detectedDigits, angle.ToString("F0"), new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.4, new Bgr(0, 255, 0).MCvScalar);
-                                                        }
-                                                        //}
-
                                                     }
                                                 }
+
+                                                if (count > 0)
+                                                {
+                                                    meanX = (double)meanX / count;
+                                                    meanY = (double)meanY / count;
+                                                }
+
+                                                var covXYSum = 0.0;
+                                                var covXSum = 0.0;
+                                                var covYSum = 0.0;
+
+                                                for (int row = 0; row < characterMatrix.Rows; row++)
+                                                {
+                                                    for (int column = 0; column < characterMatrix.Cols; column++)
+                                                    {
+                                                        var val = characterMatrix.GetData(row, column)[0];
+
+                                                        if (val > 0)
+                                                        {
+                                                            var diffX = column - meanX;
+                                                            var diffY = row - meanY;
+
+                                                            covXYSum += (diffX * diffY);
+                                                            covXSum += (diffX * diffX);
+                                                            covYSum += (diffY * diffY);
+                                                        }
+                                                    }
+                                                }
+
+                                                var covarianceXY = covXYSum / count;
+                                                var covarianceX = covXSum / count;
+                                                var covarianceY = covYSum / count;
+
+                                                var covarianceMatrix = new Matrix<double>(2, 2, 1);
+
+                                                covarianceMatrix[0, 0] = covarianceX;
+                                                covarianceMatrix[0, 1] = covarianceXY;
+                                                covarianceMatrix[1, 0] = covarianceXY;
+                                                covarianceMatrix[1, 1] = covarianceY;
+
+
+                                                // CvInvoke.CalcCovarMatrix(characterMatrix, covar, meanMat, CovarMethod.Rows | CovarMethod.Normal);
+                                                CvInvoke.Eigen(covarianceMatrix.Mat, eigenValues, eigenVectors);
+
+                                                //if(eigenValues.Data != null)
+                                                //{
+                                                var max = int.MinValue;
+                                                int maxIndex = -1;
+                                                for (int eigenIndex = 0; eigenIndex < eigenValues.Rows; eigenIndex++)
+                                                {
+                                                    var val = eigenValues.GetData(eigenIndex, 0)[0];
+
+                                                    if (val > max)
+                                                    {
+                                                        max = val;
+                                                        maxIndex = eigenIndex;
+                                                    }
+                                                    //var value = eigenValues.To[eigenIndex];
+                                                }
+
+                                                if (maxIndex >= 0)
+                                                {
+                                                    var eigenVectorX = eigenVectors.GetData(maxIndex, 0)[0];
+                                                    var eigenVectorY = eigenVectors.GetData(maxIndex, 1)[0];
+
+                                                    var angle = Math.Atan2(eigenVectorY, eigenVectorX);
+                                                    //Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
+                                                    if (angle < 0)
+                                                    {
+                                                        angle += 6.28318530718;
+                                                    }
+                                                    //Conver to degrees instead of radians
+                                                    angle = 180 * angle / 3.14159265359;
+
+                                                    var rotateAngle = Math.Abs(90 - angle);
+                                                    CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(Math.Floor(compRectangle.Width / 2f)), (float)(Math.Floor(compRectangle.Height / 2f))), rotateAngle, 1, covar);
+                                                    Debug.WriteLine("ANGLE - " + angle + " - " + compIndex);
+
+                                                    characterMatrix.Save("rotated-" + number + "-" + compIndex + "-char.bmp");
+                                                    using (var rotatedMatrix = new Mat())
+                                                    {
+                                                        CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
+
+                                                        t.Recognize(rotatedMatrix);
+                                                        var characters = t.GetCharacters();
+
+
+
+                                                        if (characters.Length > 0)
+                                                        {
+                                                            int ix = 0;
+                                                            foreach (var c in characters)
+                                                            {
+
+
+                                                                Debug.WriteLine("Detected Number " + number + " | " + ix + " : " + c.Text + " - " + c.Cost);
+                                                                CvInvoke.PutText(detectedDigits, c.Text, new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.7, new Bgr(0, 255, 0).MCvScalar);
+                                                                ix++;
+                                                            }
+
+                                                        }
+
+                                                        //CvInvoke.PutText(detectedDigits, angle.ToString("F0"), new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.4, new Bgr(0, 255, 0).MCvScalar);
+                                                        rotatedMatrix.Save("rotated-" + number + "-" + compIndex  + ".bmp");
+                                                    }
+                                                }
+                                                //}
+
                                             }
-                                            
                                         }
-                                        
-                                        Debug.WriteLine("Detected Number " + number + " | " + ix + " : " + c.Text + " - " + c.Cost);
-                                        //CvInvoke.PutText(detectedDigits, c.Text, new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.7, new Bgr(0, 255, 0).MCvScalar);
-                                        ix++;
                                     }
-                                   
+
                                 }
+
+                                //gray.ToImage<Bgr, byte>()
+                               
                             }
                             CvInvoke.Rectangle(detectedDigits, compRectangle, new MCvScalar(100, 100, 100));
                         }
