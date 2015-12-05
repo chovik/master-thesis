@@ -721,7 +721,7 @@ namespace BibNumberDetectionUI
                             using (Emgu.CV.OCR.Tesseract t = new Emgu.CV.OCR.Tesseract("D:/Emgu/emgucv-windows-universal 3.0.0.2157/bin/tessdata/", "eng", OcrEngineMode.TesseractOnly, "1234567890"))
                             {
                                 var outerRectangle = compRectangle;
-                                int margin = 2;
+                                int margin = 4;
                                 outerRectangle.X = outerRectangle.X - margin;
 
                                 if(outerRectangle.X < 0)
@@ -753,7 +753,15 @@ namespace BibNumberDetectionUI
                                     outerRectangle.Height += diffHeight;
                                 }
 
-                                var characterMatrix = binary1Matrix.GetSubRect(outerRectangle).Mat;
+                                var characterMask = new Matrix<byte>(binary1Matrix.Size);
+                                characterMask.SetZero();
+                                CvInvoke.DrawContours(characterMask.Mat, contoursVector, compIndex, new MCvScalar(255), -1);
+
+                                var characterLargeMatrix = new Matrix<byte>(binary1Matrix.Size);
+                                binary1Matrix.Mat.CopyTo(characterLargeMatrix, characterMask.Mat);
+                                var characterMatrix = characterLargeMatrix.GetSubRect(outerRectangle).Mat;
+                                //var cropCharacterMatrix = new Mat();
+                                //characterMatrix.CopyTo(cropCharacterMatrix, characterMask.Mat);
 
                                 using (var covar = new Mat())
                                 {
@@ -856,13 +864,15 @@ namespace BibNumberDetectionUI
                                                     angle = 180 * angle / 3.14159265359;
 
                                                     var rotateAngle = Math.Abs(90 - angle);
-                                                    CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(Math.Floor(compRectangle.Width / 2f)), (float)(Math.Floor(compRectangle.Height / 2f))), rotateAngle, 1, covar);
+                                                    CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(Math.Ceiling(compRectangle.Width / 2f)), (float)(Math.Ceiling(compRectangle.Height / 2f))), rotateAngle, 1, covar);
                                                     Debug.WriteLine("ANGLE - " + angle + " - " + compIndex);
 
                                                     characterMatrix.Save("rotated-" + number + "-" + compIndex + "-char.bmp");
                                                     using (var rotatedMatrix = new Mat())
                                                     {
+                                                        var translateMatrix = new Matrix<double>(new double[,] { { 1, 0, 5 }, { 0, 1, 5 } });
                                                         CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
+                                                        CvInvoke.WarpAffine(rotatedMatrix, rotatedMatrix, translateMatrix, rotatedMatrix.Size);
 
                                                         t.Recognize(rotatedMatrix);
                                                         var characters = t.GetCharacters();
@@ -1053,7 +1063,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"IMG_0041.jpg", LoadImageType.AnyColor))
+                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
