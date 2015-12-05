@@ -759,9 +759,16 @@ namespace BibNumberDetectionUI
 
                                 var characterLargeMatrix = new Matrix<byte>(binary1Matrix.Size);
                                 binary1Matrix.Mat.CopyTo(characterLargeMatrix, characterMask.Mat);
+                                var croppedMask = characterMask.GetSubRect(outerRectangle).Mat;
+                                croppedMask.Save("rotated-" + number + "-" + compIndex + "-char-mask.bmp");
                                 var characterMatrix = characterLargeMatrix.GetSubRect(outerRectangle).Mat;
-                                //var cropCharacterMatrix = new Mat();
-                                //characterMatrix.CopyTo(cropCharacterMatrix, characterMask.Mat);
+                                var cropCharacterMatrix = binary1Matrix.GetSubRect(outerRectangle).Mat;
+                                cropCharacterMatrix.Save("rotated-" + number + "-" + compIndex + "-char-def.bmp");
+
+                                if(compIndex == 242)
+                                {
+
+                                }
 
                                 using (var covar = new Mat())
                                 {
@@ -775,11 +782,11 @@ namespace BibNumberDetectionUI
                                                 double meanX = 0;
                                                 double meanY = 0;
                                                 int count = 0;
-                                                for (int row = 0; row < characterMatrix.Rows; row++)
+                                                for (int row = 0; row < croppedMask.Rows; row++)
                                                 {
-                                                    for (int column = 0; column < characterMatrix.Cols; column++)
+                                                    for (int column = 0; column < croppedMask.Cols; column++)
                                                     {
-                                                        var val = characterMatrix.GetData(row, column)[0];
+                                                        var val = croppedMask.GetData(row, column)[0];
 
                                                         if (val > 0)
                                                         {
@@ -800,11 +807,11 @@ namespace BibNumberDetectionUI
                                                 var covXSum = 0.0;
                                                 var covYSum = 0.0;
 
-                                                for (int row = 0; row < characterMatrix.Rows; row++)
+                                                for (int row = 0; row < croppedMask.Rows; row++)
                                                 {
-                                                    for (int column = 0; column < characterMatrix.Cols; column++)
+                                                    for (int column = 0; column < croppedMask.Cols; column++)
                                                     {
-                                                        var val = characterMatrix.GetData(row, column)[0];
+                                                        var val = croppedMask.GetData(row, column)[0];
 
                                                         if (val > 0)
                                                         {
@@ -863,21 +870,32 @@ namespace BibNumberDetectionUI
                                                     //Conver to degrees instead of radians
                                                     angle = 180 * angle / 3.14159265359;
 
-                                                    var rotateAngle = Math.Abs(90 - angle);
+                                                    var rotateAngle = 90 - angle;
                                                     CvInvoke.GetRotationMatrix2D(new System.Drawing.PointF((float)(Math.Ceiling(compRectangle.Width / 2f)), (float)(Math.Ceiling(compRectangle.Height / 2f))), rotateAngle, 1, covar);
                                                     Debug.WriteLine("ANGLE - " + angle + " - " + compIndex);
+
+
+                                                    double halfmajoraxissize = 2.4477 * Math.Sqrt(eigenValues.GetData(0, 0)[0]);
+                                                    double halfminoraxissize = 2.4477 * Math.Sqrt(eigenValues.GetData(0, 0)[1]);
+
 
                                                     characterMatrix.Save("rotated-" + number + "-" + compIndex + "-char.bmp");
                                                     using (var rotatedMatrix = new Mat())
                                                     {
-                                                        var translateMatrix = new Matrix<double>(new double[,] { { 1, 0, 5 }, { 0, 1, 5 } });
-                                                        CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
-                                                        CvInvoke.WarpAffine(rotatedMatrix, rotatedMatrix, translateMatrix, rotatedMatrix.Size);
+                                                        if (Math.Abs(rotateAngle) <= 25)
+                                                        {
+                                                            var translateMatrix = new Matrix<double>(new double[,] { { 1, 0, 5 }, { 0, 1, 5 } });
+                                                            CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
+                                                            CvInvoke.WarpAffine(rotatedMatrix, rotatedMatrix, translateMatrix, rotatedMatrix.Size);
+                                                        }
+                                                        else
+                                                        {
+                                                            characterMatrix.CopyTo(rotatedMatrix);
+                                                        }
+                                                       
 
                                                         t.Recognize(rotatedMatrix);
                                                         var characters = t.GetCharacters();
-
-
 
                                                         if (characters.Length > 0)
                                                         {
