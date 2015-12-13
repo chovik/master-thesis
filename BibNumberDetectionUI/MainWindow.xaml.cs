@@ -133,7 +133,7 @@ namespace BibNumberDetectionUI
         static System.Drawing.Rectangle ComputeTorsoArea(System.Drawing.Rectangle faceArea, System.Drawing.Size imageRectangle)
         {
             double torsoWidth = faceArea.Width * (7.0 / 3.0);
-            double torsoHeight = faceArea.Height * 3.0;
+            double torsoHeight = faceArea.Height * 3.5;
             double faceCenterX = faceArea.X + (faceArea.Width * 0.5);
             double faceCenterY = faceArea.Y + (faceArea.Height * 0.5);
 
@@ -277,14 +277,16 @@ namespace BibNumberDetectionUI
             return matrix;
         }
 
-        async Task BinaryImage(Mat gray, int number, Mat canny = null, Mat color = null)
+        async Task BinaryImage(string imageName, Mat gray, int number, Mat canny = null, Mat color = null)
         {
             if(gray.Width > 160)
             {
                 CvInvoke.MedianBlur(gray, gray, 5);
             }
-            
-            var image = gray;
+
+            var image = gray;//new Mat();
+            //CvInvoke.CvtColor(gray, image, ColorConversion.Bgr2Gray);
+
             image.Save("image-" + number + ".bmp");
 
              
@@ -293,14 +295,28 @@ namespace BibNumberDetectionUI
             {
                 using (var gausssian2 = new Image<Gray, byte>(image.Size))
                 {
-                    CvInvoke.GaussianBlur(gray, gausssian1, new System.Drawing.Size(5, 5), 0);
-                    CvInvoke.GaussianBlur(gray, gausssian2, new System.Drawing.Size(1, 1), 0);
-                    var result = gausssian1 - gray.ToImage<Gray, byte>();
+                    CvInvoke.GaussianBlur(image, gausssian1, new System.Drawing.Size(5, 5), 0);
+                    CvInvoke.GaussianBlur(image, gausssian2, new System.Drawing.Size(1, 1), 0);
+                    var result = gausssian1 - image.ToImage<Gray, byte>();
                     result.Save("gauss-dog-" + number + ".bmp");
-               
-            
 
-            var imageData = EdgePreservingSmoothingBW(gray, 5);
+                    
+
+                    var imageData = EdgePreservingSmoothingBW(image, 5);
+
+                    //var edge = EdgePreservingSmoothing(gray, 5);
+
+                    //using(Image<Bgr, byte> edgeImage = new Image<Bgr, byte>(edge))
+                    //{
+                    //    edgeImage.Save("reduced-color-" + number + ".bmp");
+                    //    var subSampleData = await SubSampling(edgeImage.Mat);
+
+                    //    using (Image<Bgr, byte> smoothImage = new Image<Bgr, byte>(subSampleData))
+                    //    {
+                    //        smoothImage.Save("reduced-colorg-" + number + ".bmp");
+                    //    }
+                    //}
+                    
 
             using (Matrix<byte> edgeSmoothingImage = new Matrix<byte>(imageData))
             //using (Mat image2 = new Mat(@"IMG_0041-Gray.jpg", LoadImageType.Grayscale))
@@ -337,12 +353,12 @@ namespace BibNumberDetectionUI
                     var sobelX = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
                     var sobelY = new Mat(changedContrastImg.Size, DepthType.Cv8U, 1);
 
-                    CvInvoke.Sobel(gray, sobelX, DepthType.Cv8U, 1, 1);
+                    CvInvoke.Sobel(image, sobelX, DepthType.Cv8U, 1, 1);
 
                     sobelX.Save("sobelX-" + number + ".bmp");
 
-                    CvInvoke.Sobel(gray, sobelX, DepthType.Cv8U, 1, 0);
-                    CvInvoke.Sobel(gray, sobelY, DepthType.Cv8U, 0, 1);
+                    CvInvoke.Sobel(image, sobelX, DepthType.Cv8U, 1, 0);
+                    CvInvoke.Sobel(image, sobelY, DepthType.Cv8U, 0, 1);
 
 
 
@@ -689,17 +705,17 @@ namespace BibNumberDetectionUI
                     //var connectedComponents = FindBlobs(binary1Matrix.Mat, number);
                     CvInvoke.FindContours(binary1Matrix.Mat.Clone(), contoursVector, null, RetrType.List, ChainApproxMethod.ChainApproxNone);
 
-                    var minWidth = 0.03 * gray.Width;
-                    var maxWidth = 0.25 * gray.Width;
+                    var minWidth = 0.03 * image.Width;
+                    var maxWidth = 0.25 * image.Width;
 
-                    var minHeight = 0.04 * gray.Height;
-                    var maxHeight = 0.25 * gray.Height;
+                    var minHeight = 0.04 * image.Height;
+                    var maxHeight = 0.25 * image.Height;
 
                     Mat detectedDigits = new Mat();
 
-                    gray.ConvertTo(detectedDigits, DepthType.Cv32S);
+                    image.ConvertTo(detectedDigits, DepthType.Cv32S);
 
-                    CvInvoke.DrawContours(gray, contoursVector, -1, new MCvScalar(100, 100, 100));
+                    CvInvoke.DrawContours(image, contoursVector, -1, new MCvScalar(100, 100, 100));
                     CvInvoke.DrawContours(color, contoursVector, -1, new MCvScalar(0, 255, 0));
 
                     for (int compIndex = 0; compIndex < contoursVector.Size; compIndex++)
@@ -739,14 +755,14 @@ namespace BibNumberDetectionUI
                                 outerRectangle.Width += (2 * margin);
                                 outerRectangle.Height += (2 * margin);
 
-                                var diffWidth =  gray.Width - outerRectangle.Right;
+                                var diffWidth = image.Width - outerRectangle.Right;
 
                                 if (diffWidth < 0)
                                 {
                                     outerRectangle.Width += diffWidth;
                                 }
 
-                                var diffHeight = gray.Height - outerRectangle.Bottom;
+                                var diffHeight = image.Height - outerRectangle.Bottom;
 
                                 if (diffHeight < 0)
                                 {
@@ -758,7 +774,7 @@ namespace BibNumberDetectionUI
                                 CvInvoke.DrawContours(characterMask.Mat, contoursVector, compIndex, new MCvScalar(255), -1);
 
                                 var characterLargeMatrix = new Matrix<byte>(binary1Matrix.Size);
-                                binary1Matrix.Mat.CopyTo(characterLargeMatrix, characterMask.Mat);
+                                image.CopyTo(characterLargeMatrix, characterMask.Mat);
                                 var croppedMask = characterMask.GetSubRect(outerRectangle).Mat;
                                 croppedMask.Save("rotated-" + number + "-" + compIndex + "-char-mask.bmp");
                                 var characterMatrix = characterLargeMatrix.GetSubRect(outerRectangle).Mat;
@@ -882,19 +898,19 @@ namespace BibNumberDetectionUI
                                                     characterMatrix.Save("rotated-" + number + "-" + compIndex + "-char.bmp");
                                                     using (var rotatedMatrix = new Mat())
                                                     {
-                                                        if (Math.Abs(rotateAngle) <= 25)
-                                                        {
-                                                            var translateMatrix = new Matrix<double>(new double[,] { { 1, 0, 5 }, { 0, 1, 5 } });
-                                                            CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
-                                                            CvInvoke.WarpAffine(rotatedMatrix, rotatedMatrix, translateMatrix, rotatedMatrix.Size);
-                                                        }
-                                                        else
-                                                        {
+                                                        //if (Math.Abs(rotateAngle) <= 25)
+                                                        //{
+                                                        //    var translateMatrix = new Matrix<double>(new double[,] { { 1, 0, 5 }, { 0, 1, 5 } });
+                                                        //    CvInvoke.WarpAffine(characterMatrix, rotatedMatrix, covar, new System.Drawing.Size(characterMatrix.Cols + 10, characterMatrix.Rows + 10));
+                                                        //    CvInvoke.WarpAffine(rotatedMatrix, rotatedMatrix, translateMatrix, rotatedMatrix.Size);
+                                                        //}
+                                                        //else
+                                                        //{
                                                             characterMatrix.CopyTo(rotatedMatrix);
-                                                        }
-                                                       
+                                                        //}
 
-                                                        t.Recognize(rotatedMatrix);
+
+                                                            t.Recognize(characterMatrix);
                                                         var characters = t.GetCharacters();
 
                                                         if (characters.Length > 0)
@@ -911,7 +927,7 @@ namespace BibNumberDetectionUI
 
                                                         }
 
-                                                        //CvInvoke.PutText(detectedDigits, angle.ToString("F0"), new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.4, new Bgr(0, 255, 0).MCvScalar);
+                                                        //CvInvoke.PutText(detectedDigits, rotateAngle.ToString("F0"), new System.Drawing.Point(compRectangle.Left, compRectangle.Top), FontFace.HersheyComplex, 0.4, new Bgr(0, 255, 0).MCvScalar);
                                                         rotatedMatrix.Save("rotated-" + number + "-" + compIndex  + ".bmp");
                                                     }
                                                 }
@@ -930,7 +946,7 @@ namespace BibNumberDetectionUI
                         }
                     }
 
-                    gray.Save("gray-" + number + ".bmp");
+                    image.Save("gray-" + number + ".bmp");
                     color.Save("color-" + number + ".bmp");
 
                     detectedDigits.Save("detectedDigits" + number + ".bmp");
@@ -1081,14 +1097,17 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    using (Mat image = new Mat(@"Koice-66.jpg", LoadImageType.AnyColor))
+                    string fileName = @"DSC05767.jpg";
+                    using (Mat image = new Mat(fileName, LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();
 
                         //await BinaryImage(image);
-
-                        //return;
                         
+                        //return;
+                        var fileName2 = System.IO.Path.GetFileNameWithoutExtension(fileName);
+                        System.IO.Directory.CreateDirectory(fileName2);
+                        System.IO.Directory.SetCurrentDirectory(fileName2);
                         
                         Action updateListAction = () =>
                             {
@@ -1190,7 +1209,7 @@ namespace BibNumberDetectionUI
                         bool tryUseOpenCL = true;
 
                         DetectFace.Detect(
-                        image, "haarcascade_frontalface_alt2.xml", "haarcascade_eye.xml",
+                        image, @"..\haarcascade_frontalface_alt2.xml", @"..\haarcascade_eye.xml",
                         faces, eyes,
                         tryUseCuda,
                         tryUseOpenCL,
@@ -1223,21 +1242,21 @@ namespace BibNumberDetectionUI
                                     var grayClone = grayMat.Clone();
 
                                     //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
-                                    await BinaryImage(grayMat, index, null, torsoMat.Clone());
+                                    await BinaryImage(fileName, grayClone, index, null, torsoMat.Clone());
 
-                                   // var inverseMat = grayMat.Clone();
+                                    var inverseMat = grayMat.Clone();
                                     Matrix<byte> inverseMatrix = new Matrix<byte>(grayMat.Size);
 
-                                    for (int row = 0; row < grayMat.Rows; row++ )
+                                    for (int row = 0; row < grayMat.Rows; row++)
                                     {
-                                        for(var column = 0; column < grayMat.Cols; column++)
+                                        for (var column = 0; column < grayMat.Cols; column++)
                                         {
                                             inverseMatrix[row, column] = ToByte(255 - grayClone.GetData(row, column)[0]);
                                         }
                                     }
-                                        //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
+                                    //CvInvoke.Invert(grayMat, grayMat, DecompMethod.Normal);
                                     index++;
-                                    await BinaryImage(inverseMatrix.Mat, index, null, torsoMat.Clone());
+                                    await BinaryImage(fileName, inverseMatrix.Mat, index, null, torsoMat.Clone());
                                 }
 
 
