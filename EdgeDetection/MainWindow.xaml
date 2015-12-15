@@ -1,0 +1,23 @@
+﻿<Window x:Class="EdgeDetection.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+
+
+            <Menu >
+                <Button x:Name="ConvolutionMatrixSettingsButton" 
+                        Content="Convolution"
+                        Click="ConvolutionMatrixSettingsButton_Click"/>
+            </Menu>
+
+
+        </Grid>
+    </Grid>
+</Window>

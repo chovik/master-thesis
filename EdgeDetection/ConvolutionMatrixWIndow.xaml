@@ -1,0 +1,21 @@
+﻿<Window x:Class="EdgeDetection.ConvolutionMatrixWIndow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ConvolutionMatrixWIndow" Height="300" Width="300"
+        xmlns:edge="clr-namespace:EdgeDetection">
+    <Grid>
+        <ItemsControl ItemsSource="{Binding ConvolutionList}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <edge:ConvolutionMatrixControl Width="200" Matrix="{Binding}"
+                                                   Margin="10"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</Window>

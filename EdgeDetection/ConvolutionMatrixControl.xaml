@@ -1,0 +1,124 @@
+﻿<UserControl x:Class="EdgeDetection.ConvolutionMatrixControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300"
+             x:Name="ConvolutionMatrix">
+    <Grid>
+        <ItemsControl ItemsSource="{Binding Values}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBox Text="{Binding Value}"
+                               Width="{Binding CellWidth, ElementName=ConvolutionMatrix}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <!--<Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+            <RowDefinition/>
+            <RowDefinition/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>  
+        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>-->
+        <!--Row 0-->
+        <!--<TextBlock x:Name="Val00" 
+                   Grid.Row="0" 
+                   Grid.Column="0" />
+        <TextBlock x:Name="Val01" 
+                   Grid.Row="0" 
+                   Grid.Column="1"  />
+        <TextBlock x:Name="Val02" 
+                   Grid.Row="0" 
+                   Grid.Column="2"  />
+        <TextBlock x:Name="Val03" 
+                   Grid.Row="0" 
+                   Grid.Column="3"  />
+        <TextBlock x:Name="Val04" 
+                   Grid.Row="0" 
+                   Grid.Column="4"  />-->
+
+        <!--Row 1-->
+        <!--<TextBlock x:Name="Val10" 
+                   Grid.Row="1" 
+                   Grid.Column="0" />
+        <TextBlock x:Name="Val11" 
+                   Grid.Row="1" 
+                   Grid.Column="1"  />
+        <TextBlock x:Name="Val12" 
+                   Grid.Row="1" 
+                   Grid.Column="2"  />
+        <TextBlock x:Name="Val13" 
+                   Grid.Row="1" 
+                   Grid.Column="3"  />
+        <TextBlock x:Name="Val14" 
+                   Grid.Row="1" 
+                   Grid.Column="4"  />-->
+
+        <!--Row 2-->
+        <!--<TextBlock x:Name="Val20" 
+                   Grid.Row="2" 
+                   Grid.Column="0" />
+        <TextBlock x:Name="Val21" 
+                   Grid.Row="2" 
+                   Grid.Column="1"  />
+        <TextBlock x:Name="Val22" 
+                   Grid.Row="2" 
+                   Grid.Column="2"  />
+        <TextBlock x:Name="Val23" 
+                   Grid.Row="2" 
+                   Grid.Column="3"  />
+        <TextBlock x:Name="Val24" 
+                   Grid.Row="2" 
+                   Grid.Column="4"  />-->
+
+        <!--Row 3-->
+        <!--<TextBlock x:Name="Val30" 
+                   Grid.Row="3" 
+                   Grid.Column="0" />
+        <TextBlock x:Name="Val31" 
+                   Grid.Row="3" 
+                   Grid.Column="1"  />
+        <TextBlock x:Name="Val32" 
+                   Grid.Row="3" 
+                   Grid.Column="2"  />
+        <TextBlock x:Name="Val33" 
+                   Grid.Row="3" 
+                   Grid.Column="3"  />
+        <TextBlock x:Name="Val34" 
+                   Grid.Row="3" 
+                   Grid.Column="4"  />-->
+
+        <!--Row 4-->
+        <!--<TextBlock x:Name="Val40" 
+                   Grid.Row="4" 
+                   Grid.Column="0" />
+        <TextBlock x:Name="Val41" 
+                   Grid.Row="4" 
+                   Grid.Column="1"  />
+        <TextBlock x:Name="Val42" 
+                   Grid.Row="4" 
+                   Grid.Column="2"  />
+        <TextBlock x:Name="Val43" 
+                   Grid.Row="4" 
+                   Grid.Column="3"  />
+        <TextBlock x:Name="Val44" 
+                   Grid.Row="4" 
+                   Grid.Column="4"  />-->
+    </Grid>
+</UserControl>

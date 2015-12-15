@@ -1105,9 +1105,17 @@ namespace BibNumberDetectionUI
                         //await BinaryImage(image);
                         
                         //return;
+
                         var fileName2 = System.IO.Path.GetFileNameWithoutExtension(fileName);
                         System.IO.Directory.CreateDirectory(fileName2);
                         System.IO.Directory.SetCurrentDirectory(fileName2);
+
+                        Mat blurImage = new Mat();
+                        Mat blurCannyImage = new Mat();
+                        CvInvoke.GaussianBlur(image, blurImage, new System.Drawing.Size(5, 5), 0);
+                        blurImage.Save("blur.jpg");
+                        CvInvoke.Canny(blurImage, blurCannyImage, 70, 210);
+                        blurCannyImage.Save("blurCanny.jpg");
                         
                         Action updateListAction = () =>
                             {
