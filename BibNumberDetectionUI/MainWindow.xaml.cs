@@ -1097,7 +1097,7 @@ namespace BibNumberDetectionUI
         {
             await Task.Run(async () =>
                 {
-                    string fileName = @"DSC05767.jpg";
+                    string fileName = @"C:\Users\Michal\Documents\Projects\thesis\master-thesis\BibNumberDetectionUI\test\binary1Matrix.jpg";
                     using (Mat image = new Mat(fileName, LoadImageType.AnyColor))
                     {//Read the files as an 8-bit Bgr image  
                         //Mat sharpImage = new Mat();

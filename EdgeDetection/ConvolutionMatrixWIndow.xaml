@@ -4,7 +4,19 @@
         Title="ConvolutionMatrixWIndow" Height="300" Width="300"
         xmlns:edge="clr-namespace:EdgeDetection">
     <Grid>
-        <ItemsControl ItemsSource="{Binding ConvolutionList}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+        <Menu >
+            <Button x:Name="SaveFinalImagesButton" 
+                        Content="Save"
+                        Click="SaveFinalImagesButton_Click"/>
+        </Menu>
+
+        <ItemsControl ItemsSource="{Binding ConvolutionList}"
+                      Grid.Row="1">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel Orientation="Horizontal"/>

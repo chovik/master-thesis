@@ -61,5 +61,21 @@ namespace EdgeDetection
                 Values.Add(new BindableValue(0.0));
             }
         }
+
+        public double[,] GetData()
+        {
+            var count = Rows * Cols;
+            double[,] data = new double[Rows, Cols];
+
+            for (int i = 0; i < count; i++)
+            {
+                var val = Values[i];
+                var row = i / Cols;
+                var column = i % Rows;
+                data[row, column] = val.Value;
+            }
+
+            return data;
+        }
     }
 }
